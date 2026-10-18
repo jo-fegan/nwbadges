@@ -13,7 +13,7 @@ const BUCKET_NAME = 'badges';
 const TABLES = {
   members: 'members_public',
   badges: 'badges_public',
-  badge_images: 'badge_images',
+  badge_images: 'badge_images_public',
   earned: 'earned_public'
 };
 
