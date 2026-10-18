@@ -1,84 +1,345 @@
-import { MEMBERS, BADGES, PUBLIC_BASE, ELIGIBILITY } from './data.js';
+// App: fetches from Supabase REST endpoints and renders responsive UI with non-overlapping floating initials.
+//
+// IMPORTANT:
+// - Set SUPABASE_URL to your project URL (example: https://xxxxx.supabase.co).
+// - If your tables require the anon key (RLS not open), set SUPABASE_ANON_KEY below or in localStorage key 'supabase_anon'.
+// - The app will attempt unauthenticated fetches first and then add headers if anon key present.
 
-const THEME_KEY = 'nwbadges_theme_v1';
-const selectedContainer = document.getElementById('selected-container');
+const SUPABASE_URL = 'https://qnclxwwfapexijgpweja.supabase.co'; 
+let SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon') || ''; // optional; set in DevTools or edit here
+
+const TABLES = {
+  members: 'members',
+  badges: 'badges',
+  badge_images: 'badge_images',
+  earned: 'earned_badges'
+};
+
+const fetchHeaders = () => {
+  const h = { 'Accept': 'application/json' };
+  if (SUPABASE_ANON_KEY) {
+    h['apikey'] = SUPABASE_ANON_KEY;
+    h['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY;
+  }
+  return h;
+};
+
+async function fetchTable(table, params = '') {
+  const url = `${SUPABASE_URL}/rest/v1/${table}${params}`;
+  try {
+    const res = await fetch(url, { headers: fetchHeaders() });
+    if (!res.ok) {
+      console.warn('Fetch failed', url, res.status);
+      return [];
+    }
+    return await res.json();
+  } catch (e) {
+    console.warn('Fetch error', e);
+    return [];
+  }
+}
+
+// DOM references
 const floatStage = document.getElementById('float-stage');
-const teamViewBtn = document.getElementById('team-view-btn');
+const selectedContainer = document.getElementById('selected-container');
+const backToTeam = document.getElementById('back-to-team');
+const themeToggle = document.getElementById('theme-toggle');
+const recentList = document.getElementById('recent-list');
+const allBadgesRow = document.getElementById('all-badges');
 
-function applyTheme(){
+let MEMBERS = [], BADGES = [], BADGE_IMAGES = [], EARNED = [];
+let floatEls = []; // {el, member, left, top}
+
+// Utility for public image url (attempts to use any image path from badge_images)
+function publicUrl(storagePath) {
+  if (!storagePath) return '';
+  // Most likely images are in the public storage bucket path
+  return `${SUPABASE_URL}/storage/v1/object/public/badges/${encodeURIComponent(storagePath)}`;
+}
+
+// Theme
+const THEME_KEY = 'nwbadges_theme_v1';
+function applyTheme() {
   const theme = localStorage.getItem(THEME_KEY) || 'light';
   document.documentElement.classList.toggle('theme-dark', theme === 'dark');
+  themeToggle.textContent = theme === 'dark' ? 'Dark mode' : 'Light mode';
 }
-function toggleTheme(){
-  const current = localStorage.getItem(THEME_KEY) || 'light';
-  localStorage.setItem(THEME_KEY, current === 'dark' ? 'light' : 'dark');
+function toggleTheme() {
+  const cur = localStorage.getItem(THEME_KEY) || 'light';
+  localStorage.setItem(THEME_KEY, cur === 'dark' ? 'light' : 'dark');
   applyTheme();
 }
+themeToggle.addEventListener('click', toggleTheme);
+applyTheme();
 
-function publicUrl(file){ return PUBLIC_BASE + '/' + encodeURIComponent(file); }
+// responsive layout recalculation on resize
+window.addEventListener('resize', () => {
+  positionAllFloatElements(true);
+});
 
-function renderRecent(){
-  const list = document.getElementById('recent-list');
-  const recent = [];
-  MEMBERS.forEach(m=>{
-    m.earned.forEach(e=>{
-      recent.push({ member:m, badge:e, at:e.earned_at || new Date().toISOString() });
-    });
+// Main init: fetch data and render
+(async function init() {
+  // fetch data in parallel
+  [MEMBERS, BADGES, BADGE_IMAGES, EARNED] = await Promise.all([
+    fetchTable(TABLES.members, '?select=id,initials,display_name,avatar_color&order=initials'),
+    fetchTable(TABLES.badges, '?select=id,name,description,categories,eligibility_type,eligibility_user_ids'),
+    fetchTable(TABLES.badge_images, '?select=badge_id,storage_path,format,width,height'),
+    fetchTable(TABLES.earned, '?select=id,member_id,badge_id,earned_at,comment,star_count&order=earned_at.desc&limit=50')
+  ]);
+
+  // Map images onto badges
+  const imagesByBadge = {};
+  BADGE_IMAGES.forEach(bi => {
+    imagesByBadge[bi.badge_id] = imagesByBadge[bi.badge_id] || [];
+    imagesByBadge[bi.badge_id].push(bi);
   });
-  recent.sort((a,b)=> new Date(b.at) - new Date(a.at));
-  const top = recent.slice(0,5);
-  if(top.length === 0){ list.textContent = 'No recent activity yet.'; return; }
-  list.innerHTML = '';
-  top.forEach(item=>{
+  BADGES.forEach(b => { b.images = imagesByBadge[b.id] || []; });
+
+  // Map earned rows with member initials & badge names for quick use
+  const membersById = Object.fromEntries(MEMBERS.map(m=>[m.id, m]));
+  const badgesById = Object.fromEntries(BADGES.map(b=>[b.id, b]));
+
+  EARNED.forEach(e=>{
+    e.member = membersById[e.member_id] || null;
+    e.badge = badgesById[e.badge_id] || null;
+  });
+
+  // Render UI
+  renderRecent();
+  renderAllBadges();
+  renderFloatingMembers();
+})();
+
+// Render recent activity from EARNED
+function renderRecent() {
+  if (!EARNED || EARNED.length === 0) {
+    recentList.textContent = 'No recent activity yet.';
+    return;
+  }
+  recentList.innerHTML = '';
+  EARNED.slice(0,20).forEach(r => {
     const row = document.createElement('div');
     row.className = 'muted';
-    row.style.marginBottom = '8px';
-    row.innerHTML = `<div><strong>${item.member.initials}</strong> earned <strong>${item.badge.name}</strong></div>${item.badge.comment ? '<div>'+item.badge.comment+'</div>' : ''}`;
-    list.appendChild(row);
+    const when = r.earned_at ? new Date(r.earned_at).toLocaleString() : 'unknown time';
+    const memberText = r.member ? `<strong>${r.member.initials}</strong>` : '<strong>Unknown</strong>';
+    const badgeText = r.badge ? `<strong>${r.badge.name}</strong>` : '<strong>Unknown badge</strong>';
+    row.innerHTML = `<div>${memberText} earned ${badgeText} • <span class="muted" style="font-size:12px">${when}</span></div>${r.comment ? '<div style="margin-top:4px">'+escapeHtml(r.comment)+'</div>' : ''}`;
+    recentList.appendChild(row);
   });
 }
 
-function renderFloating(){
+// Render all badges in right-col panel
+function renderAllBadges() {
+  allBadgesRow.innerHTML = '';
+  if (!BADGES || BADGES.length === 0) {
+    allBadgesRow.textContent = 'No badges found.';
+    return;
+  }
+  BADGES.forEach(b => {
+    const card = buildBadgeCard({
+      name: b.name,
+      file: (b.images && b.images[0] && b.images[0].storage_path) || '',
+      short: b.description || '',
+      categories: b.categories || []
+    });
+    allBadgesRow.appendChild(card);
+  });
+}
+
+// Build badge card DOM
+function buildBadgeCard(item, earned=false, eligible=true) {
+  const card = document.createElement('div');
+  card.className = 'badge-card ' + (earned ? 'earned' : 'unearned');
+  if (item.file) {
+    const img = document.createElement('img');
+    img.src = publicUrl(item.file);
+    img.alt = item.name;
+    card.appendChild(img);
+  } else {
+    const dummy = document.createElement('div');
+    dummy.style.width='88px'; dummy.style.height='88px'; dummy.style.borderRadius='8px'; dummy.style.display='flex'; dummy.style.alignItems='center'; dummy.style.justifyContent='center';
+    dummy.textContent = '—';
+    card.appendChild(dummy);
+  }
+  const name = document.createElement('div'); name.className='badge-name'; name.textContent = item.name; card.appendChild(name);
+
+  const extra = document.createElement('div'); extra.className='badge-desc';
+  const cats = (item.categories && item.categories.length) ? 'Categories: ' + item.categories.join(', ') + ' • ' : '';
+  extra.textContent = (cats + (item.short || (earned ? 'Earned badge.' : (eligible ? 'Ready to earn.' : 'Not eligible.'))));
+  card.appendChild(extra);
+
+  card.addEventListener('click', ()=> populateBadgeDescription(item));
+  return card;
+}
+
+function populateBadgeDescription(item) {
+  const box = document.getElementById('badge-description');
+  if (!item) { box.textContent = 'Select a badge to view its description.'; return; }
+  const cats = (item.categories && item.categories.length) ? '[' + item.categories.join(', ') + '] ' : '';
+  box.textContent = cats + (item.short || 'No description available.');
+}
+
+// --------------- Floating initials: non-overlapping placement + gentle movement ----------------
+
+function renderFloatingMembers() {
   floatStage.innerHTML = '';
-  const width = floatStage.clientWidth || 900;
-  const height = floatStage.clientHeight || 420;
-  const positions = MEMBERS.map((_,i)=>({
-    left: 18 + Math.random() * (width - 130),
-    top: 18 + Math.random() * (height - 150)
-  }));
+  floatEls = [];
+  if (!MEMBERS || MEMBERS.length === 0) return;
 
-  MEMBERS.forEach((m,i)=>{
+  // prepare constrained area (padding)
+  const pad = 16;
+  const itemW = getFloatItemSize();
+  const area = floatStage.getBoundingClientRect();
+  const width = Math.max(220, area.width - pad*2);
+  const height = Math.max(220, area.height - pad*2);
+
+  // helper to test overlap
+  function overlaps(x, y) {
+    for (const it of floatEls) {
+      const dx = it.left - x, dy = it.top - y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < itemW + 6) return true;
+    }
+    return false;
+  }
+
+  // generate positions
+  for (let i=0; i<MEMBERS.length; i++) {
+    const m = MEMBERS[i];
     const el = document.createElement('div');
-    el.className = 'float-item animate';
-    el.style.left = positions[i].left + 'px';
-    el.style.top = positions[i].top + 'px';
-    el.style.background = m.color;
-    el.innerHTML = `<div class="initial">${m.initials}</div>`;
-    el.addEventListener('click', ()=>selectMember(m));
+    el.className = 'float-item';
+    el.style.width = itemW + 'px';
+    el.style.height = itemW + 'px';
+    el.style.borderRadius = '50%';
+    el.style.background = m.avatar_color || '#888';
+    el.innerHTML = `<div class="initial">${escapeHtml(m.initials || m.display_name || '')}</div>`;
+    el.title = (m.display_name || m.initials);
+
+    // click -> select member
+    el.addEventListener('click', ()=> selectMember(m));
+
     floatStage.appendChild(el);
+
+    // find a non-overlapping position (try many times)
+    let attempts = 0;
+    let left, top;
+    do {
+      left = pad + Math.random()*(width - itemW);
+      top  = pad + Math.random()*(height - itemW);
+      attempts++;
+      if (attempts > 500) break;
+    } while (overlaps(left, top));
+
+    // store element state
+    floatEls.push({ el, member: m, left, top });
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+  }
+
+  // start movement loop
+  startMovementLoop();
+}
+
+function getFloatItemSize() {
+  const w = window.innerWidth;
+  if (w < 500) return 56;
+  if (w < 900) return 64;
+  return 72;
+}
+
+// Movement loop: every N seconds choose a new target near current pos (non-overlapping)
+let movementTimer = null;
+function startMovementLoop() {
+  if (movementTimer) clearInterval(movementTimer);
+  movementTimer = setInterval(() => {
+    if (!floatEls || floatEls.length === 0) return;
+    const area = floatStage.getBoundingClientRect();
+    const pad = 16;
+    const itemW = getFloatItemSize();
+    const width = Math.max(220, area.width - pad*2);
+    const height = Math.max(220, area.height - pad*2);
+    // compute new positions one by one trying to avoid overlap
+    for (const it of floatEls) {
+      let attempts = 0;
+      let nx, ny;
+      do {
+        // choose target within +/- 80px from current pos but constrained to area
+        const maxShift = Math.max(40, Math.min(120, Math.min(width, height)/6));
+        nx = Math.max(pad, Math.min(pad + width - itemW, it.left + (Math.random()*2-1) * maxShift));
+        ny = Math.max(pad, Math.min(pad + height - itemW, it.top  + (Math.random()*2-1) * maxShift));
+        attempts++;
+        if (attempts > 200) break;
+        // check collision against other *current* targets (use tentative positions)
+        let coll = false;
+        for (const other of floatEls) {
+          if (other === it) continue;
+          const dx = (other.left) - nx, dy = (other.top) - ny;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < itemW + 6) { coll = true; break; }
+        }
+        if (!coll) break;
+      } while(true);
+
+      // apply transition by setting style left/top (CSS transition in styles)
+      it.left = nx;
+      it.top = ny;
+      it.el.style.left = nx + 'px';
+      it.el.style.top = ny + 'px';
+    }
+  }, 3000); // every 3s choose a new target (gentle & slow)
+}
+
+// Re-position elements responsively (on resize)
+function positionAllFloatElements(keepRelative=false) {
+  if (!floatEls || floatEls.length === 0) return;
+  // if keepRelative=false, recompute non-overlapping positions fresh
+  if (!keepRelative) {
+    renderFloatingMembers();
+    return;
+  }
+  // else ensure elements are within new bounds
+  const area = floatStage.getBoundingClientRect();
+  const pad = 16;
+  const itemW = getFloatItemSize();
+  const width = Math.max(220, area.width - pad*2);
+  const height = Math.max(220, area.height - pad*2);
+  floatEls.forEach(it => {
+    it.left = Math.max(pad, Math.min(pad + width - itemW, it.left));
+    it.top  = Math.max(pad, Math.min(pad + height - itemW, it.top));
+    it.el.style.left = it.left + 'px';
+    it.el.style.top = it.top + 'px';
+    it.el.style.width = itemW + 'px';
+    it.el.style.height = itemW + 'px';
   });
 }
 
-let selectedMember = null;
+// --------------- Member selection and view ----------------
 
-function selectMember(member){
-  selectedMember = member;
+function selectMember(member) {
+  // find freshest earned items for this member in EARNED
+  const memberEarned = EARNED.filter(e => e.member_id === member.id).map(e => {
+    const badge = BADGES.find(b=>b.id === e.badge_id) || {};
+    return { name: badge.name || 'Unknown', file: (BADGE_IMAGES && BADGE_IMAGES.find(x=>x.badge_id===badge.id) && BADGE_IMAGES.find(x=>x.badge_id===badge.id).storage_path) || '', comment: e.comment, earned_at: e.earned_at, categories: badge.categories || [] };
+  });
+
+  // Populate selected area
   selectedContainer.classList.remove('hide');
   selectedContainer.setAttribute('aria-hidden', 'false');
-  document.getElementById('team-view-btn').classList.remove('hide');
   document.getElementById('float-stage').classList.add('hide');
-
   document.getElementById('selected-avatar').textContent = member.initials;
-  document.getElementById('selected-avatar').style.background = member.color;
-  document.getElementById('selected-name').textContent = member.name;
-  document.getElementById('selected-summary').textContent = `${member.earned.length} badge${member.earned.length===1?'':'s'} earned`;
+  document.getElementById('selected-avatar').style.background = member.avatar_color || '#555';
+  document.getElementById('selected-name').textContent = member.display_name || member.initials;
+  document.getElementById('selected-summary').textContent = `${memberEarned.length} badge${memberEarned.length===1?'':'s'} earned`;
+
+  // show back button
+  document.getElementById('back-to-team').classList.remove('hide');
 
   // stats
   const statsGrid = document.getElementById('stats-grid');
   statsGrid.innerHTML = '';
-  const totalEarned = member.earned.length;
+  const totalEarned = memberEarned.length;
   let lastBadge = '—', lastDate = null, totalStars = 0;
-  member.earned.forEach(e=>{ totalStars += (e.star || 1); if(e.earned_at){ const d = new Date(e.earned_at); if(!lastDate || d>lastDate){ lastDate=d; lastBadge=e.name; } }});
+  memberEarned.forEach(e=>{ totalStars += (e.star || 1); if(e.earned_at){ const d = new Date(e.earned_at); if(!lastDate || d>lastDate){ lastDate=d; lastBadge=e.name; } }});
   const statList = [
     {label:'Last badge', value: lastDate ? lastDate.toLocaleDateString() : 'No badges yet'},
     {label:'Total badges', value: String(totalEarned)},
@@ -91,71 +352,59 @@ function selectMember(member){
     statsGrid.appendChild(div);
   });
 
-  renderBadgeRows(member);
+  // render earned row
+  const earnedRow = document.getElementById('earned-row');
+  const availableRow = document.getElementById('available-row');
+  earnedRow.innerHTML = ''; availableRow.innerHTML = '';
+
+  if (memberEarned.length === 0) {
+    const empty = document.createElement('div'); empty.className='empty'; empty.textContent='No badges earned yet.'; earnedRow.appendChild(empty);
+  } else {
+    memberEarned.forEach(item => {
+      const card = buildBadgeCard({ name: item.name, file: item.file, short: item.comment, categories: item.categories }, true);
+      earnedRow.appendChild(card);
+    });
+  }
+
+  // available badges: from BADGES filtered by eligibility
+  const earnedSet = new Set(memberEarned.map(e=>e.name));
+  BADGES.forEach(b => {
+    if (!earnedSet.has(b.name)) {
+      // determine eligible: if eligibility_type is 'everyone' or member is included in eligibility_user_ids
+      let eligible = (b.eligibility_type === 'everyone');
+      if (!eligible && b.eligibility_user_ids && b.eligibility_user_ids.length) {
+        eligible = b.eligibility_user_ids.includes(member.id);
+      }
+      const card = buildBadgeCard({ name: b.name, file: (b.images && b.images[0] && b.images[0].storage_path) || '', short: b.description, categories: b.categories || [] }, false, eligible);
+      availableRow.appendChild(card);
+    }
+  });
+
   populateBadgeDescription(null);
 }
 
-function renderBadgeRows(member){
-  const earnedRow = document.getElementById('earned-row');
-  const availableRow = document.getElementById('available-row');
-  earnedRow.innerHTML = '';
-  availableRow.innerHTML = '';
-
-  const earnedSet = new Set(member.earned.map(e=>e.name));
-  const earnedBadges = member.earned.map(e=>{
-    const match = BADGES.find(b=>b.name===e.name);
-    return { name: e.name, file: match ? match.file : '', short: match ? match.short : '', comment: e.comment || '' };
-  });
-  if(earnedBadges.length===0){
-    const empty = document.createElement('div'); empty.className='empty'; empty.textContent='No badges earned yet.'; earnedRow.appendChild(empty);
-  } else {
-    earnedBadges.forEach(item=> earnedRow.appendChild(buildBadgeCard(item, true)));
-  }
-
-  BADGES.forEach(b=>{
-    if(!earnedSet.has(b.name)){
-      const eligible = (ELIGIBILITY[b.name]||[]).includes(member.initials) || (ELIGIBILITY[b.name]||[]).length===0;
-      availableRow.appendChild(buildBadgeCard({name:b.name,file:b.file,short:b.short}, false, eligible));
-    }
-  });
-  if(availableRow.children.length===0){ const empty=document.createElement('div'); empty.className='empty'; empty.textContent='All badges earned.'; availableRow.appendChild(empty); }
-}
-
-function buildBadgeCard(item, earned, eligible=true){
-  const card = document.createElement('div'); card.className = 'badge-card ' + (earned ? 'earned' : 'unearned');
-  if(item.file){ const img = document.createElement('img'); img.src = publicUrl(item.file); img.alt = item.name; card.appendChild(img); }
-  const name = document.createElement('div'); name.className = 'badge-name'; name.textContent = item.name; card.appendChild(name);
-  const extra = document.createElement('div'); extra.className = 'badge-desc'; extra.textContent = item.short || (earned ? item.comment || 'Earned badge.' : (eligible ? 'Ready to earn.' : 'Not eligible.'));
-  card.appendChild(extra);
-  card.addEventListener('click', ()=>populateBadgeDescription(item));
-  return card;
-}
-
-function populateBadgeDescription(item){
-  const box = document.getElementById('badge-description');
-  box.textContent = item ? (item.short || item.comment || 'Description not available.') : 'Select a badge to view its description.';
-}
-
-function resetToTeamView(){
-  selectedMember = null;
-  selectedContainer.classList.add('hide');
-  selectedContainer.setAttribute('aria-hidden', 'true');
-  document.getElementById('team-view-btn').classList.add('hide');
+// back to team
+document.getElementById('back-to-team').addEventListener('click', () => {
+  document.getElementById('selected-container').classList.add('hide');
+  document.getElementById('selected-container').setAttribute('aria-hidden', 'true');
   document.getElementById('float-stage').classList.remove('hide');
-  renderFloating();
-}
+  document.getElementById('back-to-team').classList.add('hide');
+  renderFloatingMembers();
+});
 
-function openSuggestModal(){ document.getElementById('suggest-modal').classList.remove('hide'); }
-function closeSuggestModal(){ document.getElementById('suggest-modal').classList.add('hide'); document.getElementById('s-name').value=''; document.getElementById('s-desc').value=''; document.getElementById('s-files').value=''; }
-function submitSuggest(){ const name = document.getElementById('s-name').value.trim(); if(!name){ alert('Please enter a badge name'); return; } const key = 'nwbadges_local_suggestions'; const cur = JSON.parse(localStorage.getItem(key) || '[]'); cur.push({name,description:document.getElementById('s-desc').value,created_at:new Date().toISOString()}); localStorage.setItem(key, JSON.stringify(cur)); alert('Suggestion saved locally.'); closeSuggestModal(); }
+// Suggest modal handlers (local stub)
+document.getElementById('suggest-btn').addEventListener('click', ()=> document.getElementById('suggest-modal').classList.remove('hide'));
+document.getElementById('s-cancel').addEventListener('click', ()=> document.getElementById('suggest-modal').classList.add('hide'));
+document.getElementById('s-submit').addEventListener('click', ()=> {
+  const name = document.getElementById('s-name').value.trim();
+  if(!name) { alert('Please enter a name'); return; }
+  const key = 'nwbadges_local_suggestions';
+  const cur = JSON.parse(localStorage.getItem(key) || '[]');
+  cur.push({name, desc: document.getElementById('s-desc').value, at: new Date().toISOString()});
+  localStorage.setItem(key, JSON.stringify(cur));
+  alert('Saved locally.');
+  document.getElementById('suggest-modal').classList.add('hide');
+});
 
-document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
-document.getElementById('team-view-btn').addEventListener('click', resetToTeamView);
-document.getElementById('suggest-btn').addEventListener('click', openSuggestModal);
-document.getElementById('s-cancel').addEventListener('click', closeSuggestModal);
-document.getElementById('s-submit').addEventListener('click', submitSuggest);
-document.getElementById('suggest-overlay')?.addEventListener('click', (e)=>{ if(e.target.id==='suggest-overlay') closeSuggestModal(); });
-
-applyTheme();
-renderFloating();
-renderRecent();
+// escape html helper
+function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
