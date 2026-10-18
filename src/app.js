@@ -49,8 +49,17 @@ async function fetchTable(table, params = '') {
 // encode each path segment so folder structure is preserved
 function publicUrl(storagePath) {
   if (!storagePath) return '';
-  const encoded = storagePath.split('/').map(encodeURIComponent).join('/');
+  // guard against stringified 'null' values that sometimes appear in rows
+  if (String(storagePath).toLowerCase() === 'null') return '';
+  const encoded = String(storagePath).split('/').map(encodeURIComponent).join('/');
   return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${encoded}`;
+}
+
+function normalizeStoragePath(s) {
+  if (!s) return '';
+  const str = String(s).trim();
+  if (str === '' || str.toLowerCase() === 'null') return '';
+  return str;
 }
 
 function escapeHtml(s) {
@@ -106,8 +115,10 @@ async function init() {
     const imagesByBadge = {};
     (BADGE_IMAGES || []).forEach(bi => {
       if (!bi || !bi.badge_id) return;
+      const sp = normalizeStoragePath(bi.storage_path || bi.path || '');
+      if (!sp) return;
       imagesByBadge[bi.badge_id] = imagesByBadge[bi.badge_id] || [];
-      imagesByBadge[bi.badge_id].push(bi);
+      imagesByBadge[bi.badge_id].push(Object.assign({}, bi, { storage_path: sp }));
     });
 
     (BADGES || []).forEach(b => {
@@ -181,10 +192,11 @@ function renderAllBadges() {
   }
 
   BADGES.forEach(b => {
+    const file = (b.images && b.images[0] && b.images[0].storage_path) || '';
     const card = buildBadgeCard({
       id: b.id,
       name: b.name,
-      file: (b.images && b.images[0] && b.images[0].storage_path) || '',
+      file: file,
       short: b.description || '',
       categories: b.categories || []
     }, false, true, { showOnlyDescription: true });
@@ -199,7 +211,8 @@ function buildBadgeCard(item, earned = false, eligible = true, opts = {}) {
 
   if (item.file) {
     const img = document.createElement('img');
-    img.src = publicUrl(item.file);
+    const url = publicUrl(item.file);
+    if (url) img.src = url;
     img.alt = item.name || '';
     img.addEventListener('error', () => {
       console.warn('Badge image failed to load:', img.src);
@@ -404,7 +417,8 @@ function selectMember(member) {
 
   const memberEarned = (EARNED || []).filter(e => e.member_id === member.id).map(e => {
     const badge = (BADGES || []).find(b => b.id === e.badge_id) || {};
-    const image = (badge.images && badge.images[0] && badge.images[0].storage_path) || '';
+    let image = (badge.images && badge.images[0] && badge.images[0].storage_path) || '';
+    if (image === 'null') image = '';
     return {
       id: e.id,
       name: badge.name || 'Unknown',
@@ -515,7 +529,8 @@ function selectMember(member) {
 
         if (it.file) {
           const img = document.createElement('img');
-          img.src = publicUrl(it.file);
+          const url = publicUrl(it.file);
+          if (url) img.src = url;
           img.alt = it.name || '';
           img.addEventListener('error', () => {
             console.warn('Badge image failed to load:', img.src);
