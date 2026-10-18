@@ -22,8 +22,9 @@ button{background:var(--card);border:1px solid var(--glass);padding:8px 10px;bor
 .left-col{flex:1}
 .right-col{min-width:300px;max-width:420px}
 .panel{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 4px 12px var(--shadow)}
-.float-stage{position:relative;min-height:360px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.7), rgba(0,0,0,0.02));overflow:hidden;padding:8px;border:1px solid var(--glass)}
-.float-item{position:absolute; width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,0.08); user-select:none; transition:left 2s ease, top 2s ease}
+/* float area layout improvements */
+.float-stage{position:relative;min-height:340px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.7), rgba(0,0,0,0.02));overflow:hidden;padding:8px;border:1px solid var(--glass);display:block}
+.float-item{position:absolute; display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,0.08); user-select:none; transition:left 2s ease, top 2s ease, transform 2s ease}
 .float-item .initial{font-size:20px}
 .selected-area{display:flex;gap:14px;align-items:center;margin-bottom:12px}
 .selected-avatar{width:84px;height:84px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:30px;box-shadow:0 6px 18px rgba(0,0,0,0.08)}
@@ -33,20 +34,24 @@ button{background:var(--card);border:1px solid var(--glass);padding:8px 10px;bor
 .stat strong{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
 .hr{height:1px;background:var(--glass);margin:12px 0;border-radius:5px}
 .hrow{display:flex;gap:12px;overflow-x:auto;padding:6px 0 8px;scrollbar-width:thin}
-.badge-card{flex:0 0 auto;width:110px;padding:6px;border-radius:10px;background:var(--card);box-shadow:0 4px 12px rgba(0,0,0,0.03);display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+.badge-card{flex:0 0 auto;width:140px;padding:12px;border-radius:10px;background:var(--card);box-shadow:0 4px 12px rgba(0,0,0,0.03);display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
 .badge-card img{width:88px;height:88px;object-fit:contain;border-radius:8px}
 .badge-card.unearned img{filter:grayscale(100%);opacity:.6}
-.badge-name{margin-top:6px;font-weight:600;text-align:center;font-size:13px}
+.badge-name{margin-top:6px;font-weight:600;text-align:center;font-size:14px}
 .badge-desc{margin-top:8px;color:var(--muted);font-size:13px;line-height:1.4}
 .empty{color:var(--muted);font-size:13px}
 .hide{display:none!important}
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:60}
 .modal{width:720px;max-width:95%;background:var(--card);border-radius:10px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.4)}
 .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.filters{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.filter-btn{background:transparent;border:1px solid var(--glass);padding:6px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
+.filter-btn.active{border-color:var(--accent);color:var(--accent);background:linear-gradient(90deg, rgba(43,124,255,0.06), transparent)}
 @media (max-width:1000px){
   .layout{flex-direction:column}
   .right-col{max-width:none}
   .float-stage{min-height:300px}
-  .float-item{width:60px;height:60px}
+  .float-item{width:60px;height:60px;border-radius:50%}
   .selected-avatar{width:64px;height:64px}
+  .badge-card{width:120px}
 }
