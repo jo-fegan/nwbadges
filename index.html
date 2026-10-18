@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>NW Badges — Who's awesome today?</title>
+  <title>NW Badges</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
   <header>
     <div class="brand">
-      <h1>NW Badges — Who's awesome today?</h1>
+      <h1>NW Badges</h1>
       <div class="muted">Small celebration board — tap an initial to learn more.</div>
     </div>
 
     <div class="controls">
-      <button id="theme-toggle">Light mode</button>
+      <button id="theme-toggle">Toggle theme</button>
       <button id="suggest-btn">Suggest badge</button>
     </div>
   </header>
@@ -22,36 +22,7 @@
   <main class="layout">
     <section class="left-col">
       <div id="selected-container" class="panel hide" aria-hidden="true">
-        <div class="selected-area">
-          <div id="selected-avatar" class="selected-avatar">JZ</div>
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:12px">
-              <div id="selected-name" class="selected-name">JZ</div>
-              <button id="back-to-team" class="small-btn hide">Back to team</button>
-            </div>
-            <div id="selected-summary" class="muted">Summary</div>
-          </div>
-        </div>
-
-        <div id="stats-grid" class="stats-grid"></div>
-
-        <div class="hr"></div>
-
-        <div>
-          <strong>Earned badges</strong>
-          <div id="earned-row" class="hrow" aria-label="Earned badges"></div>
-        </div>
-
-        <div class="hr"></div>
-
-        <div>
-          <strong>Available to earn</strong>
-          <div id="available-row" class="hrow" aria-label="Available badges"></div>
-        </div>
-
-        <div class="hr"></div>
-
-        <div id="badge-description" class="badge-desc">Select a badge to view its description.</div>
+        ...
       </div>
 
       <div id="float-stage" class="float-stage panel" aria-live="polite"></div>
@@ -65,10 +36,10 @@
 
       <div class="panel" style="margin-top:12px">
         <strong>About this view</strong>
-        <div class="muted" style="margin-top:8px;line-height:1.5">
-          • Tap an initial to inspect a team member. The selected member appears above with KPIs.<br>
-          • Earned badges use the earned_badges table; recent activity is live from the DB.<br>
-          • Use the badges panel below to browse all badges and see categories.
+        <div id="about-view" class="muted" style="margin-top:8px;line-height:1.5">
+          <!-- new copy -->
+          - Tap an initial to check out a team member's badges<br>
+          - Scroll through the All badges panel below to see the full list
         </div>
       </div>
 
@@ -81,17 +52,7 @@
 
   <!-- Suggest modal (stub) -->
   <div id="suggest-modal" class="overlay hide">
-    <div class="modal" role="dialog" aria-modal="true">
-      <h3>Suggest a new badge</h3>
-      <label>Badge name</label>
-      <input id="s-name" type="text" />
-      <label>Description</label>
-      <textarea id="s-desc"></textarea>
-      <div class="actions">
-        <button id="s-cancel">Cancel</button>
-        <button id="s-submit">Submit</button>
-      </div>
-    </div>
+    ...
   </div>
 
   <script type="module" src="src/app.js"></script>
