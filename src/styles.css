@@ -23,8 +23,8 @@ button{background:var(--card);border:1px solid var(--glass);padding:8px 10px;bor
 .right-col{min-width:300px;max-width:420px}
 .panel{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 4px 12px var(--shadow)}
 /* float area layout improvements */
-.float-stage{position:relative;min-height:340px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.7), rgba(0,0,0,0.02));overflow:hidden;padding:8px;border:1px solid var(--glass);display:block}
-.float-item{position:absolute; display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,0.08); user-select:none; transition:left 2s ease, top 2s ease, transform 2s ease}
+.float-stage{position:relative;min-height:340px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.7), rgba(0,0,0,0.02));overflow:hidden;padding:8px;border:1px solid var(--glass)}
+.float-item{position:absolute; display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,0.08); user-select:none; transition:transform 1.4s ease}
 .float-item .initial{font-size:20px}
 .selected-area{display:flex;gap:14px;align-items:center;margin-bottom:12px}
 .selected-avatar{width:84px;height:84px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:30px;box-shadow:0 6px 18px rgba(0,0,0,0.08)}
@@ -54,4 +54,12 @@ button{background:var(--card);border:1px solid var(--glass);padding:8px 10px;bor
   .float-item{width:60px;height:60px;border-radius:50%}
   .selected-avatar{width:64px;height:64px}
   .badge-card{width:120px}
+}
+
+/* Ensure the float stage is visible and sized for layout (override accidental display:none) */
+#float-stage, .float-stage {
+  display: block !important;
+  position: relative !important;
+  min-height: 340px !important;
+  overflow: hidden !important;
 }
