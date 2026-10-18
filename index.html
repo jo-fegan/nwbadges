@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>NW Badges — Team</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;line-height:1.4;padding:24px;background:#f6f8fb;color:#111}
+    h1{margin:0 0 12px}
+    .members{display:flex;gap:12px;flex-wrap:wrap}
+    .member{width:120px;padding:10px;background:#fff;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.06);text-align:center}
+    .avatar{width:56px;height:56px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;margin-bottom:8px}
+    .badges{display:flex;gap:12px;margin-top:18px;flex-wrap:wrap}
+    .badge{width:120px;padding:8px;background:#fff;border-radius:8px; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,.04)}
+    .badge img{width:96px;height:96px;object-fit:contain}
+    .unearned img{filter:grayscale(100%);opacity:.6}
+    .comment{font-size:13px;color:#555;margin-top:6px}
+  </style>
+</head>
+<body>
+  <h1>NW Badges — Team</h1>
+  <p>Click a member to view their badges (demo). This static demo shows all members and the three badges.</p>
+
+  <div class="members" id="members"></div>
+
+  <script>
+    // Data for demo — the page reads public URLs directly
+    const SUPABASE_PUBLIC = 'https://qnclxwwfapexijgpweja.supabase.co/storage/v1/object/public/badges';
+    const badges = [
+      { name:'Firetruck', file:'firetruck.png' },
+      { name:'MrSmith',  file:'mrsmith.png' },
+      { name:'Cowboy',   file:'cowboy.png' }
+    ];
+
+    // Simple member list (you can expand later). Initials/colors match your seed.
+    const members = [
+      { initials:'JZ', name:'JZ', color:'#b6561a', earned: ['Firetruck','Cowboy'] },  // example: JZ has Firetruck & Cowboy
+      { initials:'JT', name:'JT', color:'#007c96', earned: [] },
+      { initials:'BC', name:'BC', color:'#ffc491', earned: ['MrSmith'] },
+      { initials:'CR', name:'CR', color:'#f3fdce', earned: [] },
+      { initials:'SS', name:'SS', color:'#b6561a', earned: [] },
+      { initials:'KM', name:'KM', color:'#007c96', earned: [] }
+    ];
+
+    const membersEl = document.getElementById('members');
+
+    members.forEach(m=>{
+      const el = document.createElement('div');
+      el.className = 'member';
+      el.innerHTML = `
+        <div class="avatar" style="background:${m.color}">${m.initials}</div>
+        <div><strong>${m.name}</strong></div>
+        <div class="badges">
+          ${badges.map(b=>{
+            const earned = m.earned.includes(b.name);
+            return `
+              <div class="badge ${earned ? 'earned' : 'unearned'}">
+                <img src="${SUPABASE_PUBLIC}/${b.file}" alt="${b.name}">
+                <div>${b.name}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+      membersEl.appendChild(el);
+    });
+  </script>
+</body>
+</html>
