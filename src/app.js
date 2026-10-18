@@ -1,20 +1,15 @@
-// App: fetches from Supabase REST endpoints and renders responsive UI with non-overlapping floating initials.
-//
-// IMPORTANT:
-// - Set SUPABASE_URL to your project URL (example: https://xxxxx.supabase.co).
-// - If your tables require the anon key (RLS not open), set SUPABASE_ANON_KEY below or in localStorage key 'supabase_anon'.
-// - The app will attempt unauthenticated fetches first and then add headers if anon key present.
-
-const SUPABASE_URL = 'https://qnclxwwfapexijgpweja.supabase.co'; 
-let SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon') || ''; // optional; set in DevTools or edit here
+// src/app.js - updated
+// IMPORTANT: set SUPABASE_URL and BUCKET_NAME to your project values
+const SUPABASE_URL = 'https://qnclxwwfapexijgpweja.supabase.co'; // edit if needed
+let SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon') || '';
+const BUCKET_NAME = 'badges'; // <-- set to the bucket you uploaded images to
 
 const TABLES = {
   members: 'members_public',
   badges: 'badges_public',
-  badge_images: 'badge_images',   // images can stay as-is (bucket filenames)
+  badge_images: 'badge_images',
   earned: 'earned_public'
 };
-
 
 const fetchHeaders = () => {
   const h = { 'Accept': 'application/json' };
@@ -40,30 +35,33 @@ async function fetchTable(table, params = '') {
   }
 }
 
-// DOM references
+// PUBLIC URL helper for images in storage
+function publicUrl(storagePath) {
+  if (!storagePath) return '';
+  // Supabase public object URL pattern:
+  // <SUPABASE_URL>/storage/v1/object/public/<BUCKET_NAME>/<encoded-path>
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${encodeURIComponent(storagePath)}`;
+}
+
+// DOM refs
 const floatStage = document.getElementById('float-stage');
 const selectedContainer = document.getElementById('selected-container');
 const backToTeam = document.getElementById('back-to-team');
 const themeToggle = document.getElementById('theme-toggle');
 const recentList = document.getElementById('recent-list');
 const allBadgesRow = document.getElementById('all-badges');
+const aboutView = document.getElementById('about-view');
 
 let MEMBERS = [], BADGES = [], BADGE_IMAGES = [], EARNED = [];
-let floatEls = []; // {el, member, left, top}
+let floatEls = [];
 
-// Utility for public image url (attempts to use any image path from badge_images)
-function publicUrl(storagePath) {
-  if (!storagePath) return '';
-  // Most likely images are in the public storage bucket path
-  return `${SUPABASE_URL}/storage/v1/object/public/badges/${encodeURIComponent(storagePath)}`;
-}
-
-// Theme
+// Theme toggle now shows the action (i.e. the text is the action that will occur)
 const THEME_KEY = 'nwbadges_theme_v1';
 function applyTheme() {
   const theme = localStorage.getItem(THEME_KEY) || 'light';
   document.documentElement.classList.toggle('theme-dark', theme === 'dark');
-  themeToggle.textContent = theme === 'dark' ? 'Dark mode' : 'Light mode';
+  // show the action to switch to
+  themeToggle.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
 }
 function toggleTheme() {
   const cur = localStorage.getItem(THEME_KEY) || 'light';
@@ -73,22 +71,21 @@ function toggleTheme() {
 themeToggle.addEventListener('click', toggleTheme);
 applyTheme();
 
-// responsive layout recalculation on resize
+// responsive recalculation
 window.addEventListener('resize', () => {
   positionAllFloatElements(true);
 });
 
-// Main init: fetch data and render
+// --- Init and data load
 (async function init() {
-  // fetch data in parallel
   [MEMBERS, BADGES, BADGE_IMAGES, EARNED] = await Promise.all([
     fetchTable(TABLES.members, '?select=id,initials,display_name,avatar_color&order=initials'),
-    fetchTable(TABLES.badges, '?select=id,name,description,categories,eligibility_type,eligibility_user_ids'),
+    fetchTable(TABLES.badges, '?select=id,name,description,categories,eligibility_type,eligibility_user_ids,created_at'),
     fetchTable(TABLES.badge_images, '?select=badge_id,storage_path,format,width,height'),
     fetchTable(TABLES.earned, '?select=id,member_id,badge_id,earned_at,comment,star_count&order=earned_at.desc&limit=50')
   ]);
 
-  // Map images onto badges
+  // map images onto badges
   const imagesByBadge = {};
   BADGE_IMAGES.forEach(bi => {
     imagesByBadge[bi.badge_id] = imagesByBadge[bi.badge_id] || [];
@@ -96,7 +93,6 @@ window.addEventListener('resize', () => {
   });
   BADGES.forEach(b => { b.images = imagesByBadge[b.id] || []; });
 
-  // Map earned rows with member initials & badge names for quick use
   const membersById = Object.fromEntries(MEMBERS.map(m=>[m.id, m]));
   const badgesById = Object.fromEntries(BADGES.map(b=>[b.id, b]));
 
@@ -105,31 +101,35 @@ window.addEventListener('resize', () => {
     e.badge = badgesById[e.badge_id] || null;
   });
 
-  // Render UI
   renderRecent();
   renderAllBadges();
   renderFloatingMembers();
 })();
 
-// Render recent activity from EARNED
+// --- Recent activity: simplified format "INITIAL earned BADGE DATE"
 function renderRecent() {
+  recentList.innerHTML = '';
   if (!EARNED || EARNED.length === 0) {
     recentList.textContent = 'No recent activity yet.';
     return;
   }
-  recentList.innerHTML = '';
+  const ul = document.createElement('div');
+  ul.style.display = 'flex';
+  ul.style.flexDirection = 'column';
+  ul.style.gap = '8px';
   EARNED.slice(0,20).forEach(r => {
     const row = document.createElement('div');
     row.className = 'muted';
-    const when = r.earned_at ? new Date(r.earned_at).toLocaleString() : 'unknown time';
-    const memberText = r.member ? `<strong>${r.member.initials}</strong>` : '<strong>Unknown</strong>';
-    const badgeText = r.badge ? `<strong>${r.badge.name}</strong>` : '<strong>Unknown badge</strong>';
-    row.innerHTML = `<div>${memberText} earned ${badgeText} • <span class="muted" style="font-size:12px">${when}</span></div>${r.comment ? '<div style="margin-top:4px">'+escapeHtml(r.comment)+'</div>' : ''}`;
-    recentList.appendChild(row);
+    const when = r.earned_at ? new Date(r.earned_at).toLocaleDateString() : 'unknown date';
+    const memberInitial = r.member ? r.member.initials : 'Unknown';
+    const badgeName = r.badge ? r.badge.name : 'Unknown badge';
+    row.innerHTML = `<div><strong>${memberInitial}</strong> earned <strong>${badgeName}</strong> ${when}</div>`;
+    ul.appendChild(row);
   });
+  recentList.appendChild(ul);
 }
 
-// Render all badges in right-col panel
+// --- All badges panel: show description only under badge
 function renderAllBadges() {
   allBadgesRow.innerHTML = '';
   if (!BADGES || BADGES.length === 0) {
@@ -138,23 +138,26 @@ function renderAllBadges() {
   }
   BADGES.forEach(b => {
     const card = buildBadgeCard({
+      id: b.id,
       name: b.name,
       file: (b.images && b.images[0] && b.images[0].storage_path) || '',
-      short: b.description || '',
-      categories: b.categories || []
-    });
+      short: b.description || ''
+    }, false, true, { showOnlyDescription: true });
     allBadgesRow.appendChild(card);
   });
 }
 
-// Build badge card DOM
-function buildBadgeCard(item, earned=false, eligible=true) {
+// Helper build badge card (mode options)
+function buildBadgeCard(item, earned=false, eligible=true, opts={}) {
   const card = document.createElement('div');
   card.className = 'badge-card ' + (earned ? 'earned' : 'unearned');
+
   if (item.file) {
     const img = document.createElement('img');
     img.src = publicUrl(item.file);
-    img.alt = item.name;
+    img.alt = item.name || '';
+    // hide broken images gracefully
+    img.onerror = () => { img.style.display = 'none'; };
     card.appendChild(img);
   } else {
     const dummy = document.createElement('div');
@@ -162,11 +165,16 @@ function buildBadgeCard(item, earned=false, eligible=true) {
     dummy.textContent = '—';
     card.appendChild(dummy);
   }
+
   const name = document.createElement('div'); name.className='badge-name'; name.textContent = item.name; card.appendChild(name);
 
   const extra = document.createElement('div'); extra.className='badge-desc';
-  const cats = (item.categories && item.categories.length) ? 'Categories: ' + item.categories.join(', ') + ' • ' : '';
-  extra.textContent = (cats + (item.short || (earned ? 'Earned badge.' : (eligible ? 'Ready to earn.' : 'Not eligible.'))));
+  if (opts.showOnlyDescription) {
+    extra.textContent = item.short || '';
+  } else {
+    // default: show description
+    extra.textContent = item.short || (earned ? 'Earned badge.' : (eligible ? 'Ready to earn.' : 'Not eligible.'));
+  }
   card.appendChild(extra);
 
   card.addEventListener('click', ()=> populateBadgeDescription(item));
@@ -180,32 +188,44 @@ function populateBadgeDescription(item) {
   box.textContent = cats + (item.short || 'No description available.');
 }
 
-// --------------- Floating initials: non-overlapping placement + gentle movement ----------------
+// ---------------- Floating initials: grid-based placement, no overlap, responsive ----------------
+
+function getFloatItemSize() {
+  const w = window.innerWidth;
+  if (w < 420) return 52;
+  if (w < 900) return 64;
+  return 72;
+}
 
 function renderFloatingMembers() {
   floatStage.innerHTML = '';
   floatEls = [];
   if (!MEMBERS || MEMBERS.length === 0) return;
 
-  // prepare constrained area (padding)
-  const pad = 16;
+  // area for placement (use client size)
+  const pad = 12;
   const itemW = getFloatItemSize();
-  const area = floatStage.getBoundingClientRect();
-  const width = Math.max(220, area.width - pad*2);
-  const height = Math.max(220, area.height - pad*2);
+  const width = Math.max(220, floatStage.clientWidth - pad*2);
+  const height = Math.max(220, floatStage.clientHeight - pad*2);
 
-  // helper to test overlap
-  function overlaps(x, y) {
-    for (const it of floatEls) {
-      const dx = it.left - x, dy = it.top - y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < itemW + 6) return true;
-    }
-    return false;
+  // compute grid layout to space items evenly
+  const n = MEMBERS.length;
+  // heuristic grid: cols approximates aspect ratio
+  const aspect = Math.max(0.5, width / Math.max(1, height));
+  let cols = Math.ceil(Math.sqrt(n * aspect));
+  let rows = Math.ceil(n / cols);
+
+  // ensure grid cell sizes are enough for items; if too small, reduce cols
+  while ((width / cols) < (itemW + 8) && cols > 1) {
+    cols = Math.max(1, cols - 1);
+    rows = Math.ceil(n / cols);
   }
 
-  // generate positions
-  for (let i=0; i<MEMBERS.length; i++) {
+  // cell dimensions
+  const cellW = width / cols;
+  const cellH = height / rows;
+
+  for (let i=0;i<n;i++) {
     const m = MEMBERS[i];
     const el = document.createElement('div');
     el.className = 'float-item';
@@ -213,97 +233,76 @@ function renderFloatingMembers() {
     el.style.height = itemW + 'px';
     el.style.borderRadius = '50%';
     el.style.background = m.avatar_color || '#888';
+    el.style.color = '#fff';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'center';
+    el.style.fontWeight = '800';
     el.innerHTML = `<div class="initial">${escapeHtml(m.initials || m.display_name || '')}</div>`;
     el.title = (m.display_name || m.initials);
 
-    // click -> select member
     el.addEventListener('click', ()=> selectMember(m));
 
     floatStage.appendChild(el);
 
-    // find a non-overlapping position (try many times)
-    let attempts = 0;
-    let left, top;
-    do {
-      left = pad + Math.random()*(width - itemW);
-      top  = pad + Math.random()*(height - itemW);
-      attempts++;
-      if (attempts > 500) break;
-    } while (overlaps(left, top));
+    // compute grid cell coordinate
+    const row = Math.floor(i / cols);
+    const col = i % cols;
 
-    // store element state
+    // center inside the cell with a small random jitter
+    const jitterX = Math.max(-6, Math.min(6, (Math.random()*12 - 6)));
+    const jitterY = Math.max(-6, Math.min(6, (Math.random()*12 - 6)));
+    const left = pad + col * cellW + (cellW - itemW) / 2 + jitterX;
+    const top  = pad + row * cellH + (cellH - itemW) / 2 + jitterY;
+
     floatEls.push({ el, member: m, left, top });
     el.style.left = left + 'px';
     el.style.top = top + 'px';
   }
 
-  // start movement loop
   startMovementLoop();
 }
 
-function getFloatItemSize() {
-  const w = window.innerWidth;
-  if (w < 500) return 56;
-  if (w < 900) return 64;
-  return 72;
-}
-
-// Movement loop: every N seconds choose a new target near current pos (non-overlapping)
+// Movement loop: gentle small shifts but stay within grid approx positions
 let movementTimer = null;
 function startMovementLoop() {
   if (movementTimer) clearInterval(movementTimer);
   movementTimer = setInterval(() => {
     if (!floatEls || floatEls.length === 0) return;
-    const area = floatStage.getBoundingClientRect();
-    const pad = 16;
+    const areaW = Math.max(220, floatStage.clientWidth - 32);
+    const areaH = Math.max(220, floatStage.clientHeight - 32);
+    const pad = 12;
     const itemW = getFloatItemSize();
-    const width = Math.max(220, area.width - pad*2);
-    const height = Math.max(220, area.height - pad*2);
-    // compute new positions one by one trying to avoid overlap
-    for (const it of floatEls) {
-      let attempts = 0;
-      let nx, ny;
-      do {
-        // choose target within +/- 80px from current pos but constrained to area
-        const maxShift = Math.max(40, Math.min(120, Math.min(width, height)/6));
-        nx = Math.max(pad, Math.min(pad + width - itemW, it.left + (Math.random()*2-1) * maxShift));
-        ny = Math.max(pad, Math.min(pad + height - itemW, it.top  + (Math.random()*2-1) * maxShift));
-        attempts++;
-        if (attempts > 200) break;
-        // check collision against other *current* targets (use tentative positions)
-        let coll = false;
-        for (const other of floatEls) {
-          if (other === it) continue;
-          const dx = (other.left) - nx, dy = (other.top) - ny;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist < itemW + 6) { coll = true; break; }
-        }
-        if (!coll) break;
-      } while(true);
 
-      // apply transition by setting style left/top (CSS transition in styles)
+    for (const it of floatEls) {
+      // tiny shift within +/- 24px while staying within bounds
+      const maxShift = 24;
+      let nx = it.left + (Math.random()*2-1) * maxShift;
+      let ny = it.top  + (Math.random()*2-1) * maxShift;
+
+      nx = Math.max(pad, Math.min(pad + areaW - itemW, nx));
+      ny = Math.max(pad, Math.min(pad + areaH - itemW, ny));
+
       it.left = nx;
       it.top = ny;
       it.el.style.left = nx + 'px';
       it.el.style.top = ny + 'px';
+      // slight rotation for a 'float' effect
+      it.el.style.transform = `rotate(${(Math.random()*6-3)}deg)`;
+      // reset transform after transition (visually)
+      setTimeout(() => it.el.style.transform = 'rotate(0deg)', 1500);
     }
-  }, 3000); // every 3s choose a new target (gentle & slow)
+  }, 3500);
 }
 
-// Re-position elements responsively (on resize)
 function positionAllFloatElements(keepRelative=false) {
   if (!floatEls || floatEls.length === 0) return;
-  // if keepRelative=false, recompute non-overlapping positions fresh
-  if (!keepRelative) {
-    renderFloatingMembers();
-    return;
-  }
-  // else ensure elements are within new bounds
-  const area = floatStage.getBoundingClientRect();
-  const pad = 16;
+  if (!keepRelative) { renderFloatingMembers(); return; }
+  // ensure inside bounds
+  const pad = 12;
   const itemW = getFloatItemSize();
-  const width = Math.max(220, area.width - pad*2);
-  const height = Math.max(220, area.height - pad*2);
+  const width = Math.max(220, floatStage.clientWidth - pad*2);
+  const height = Math.max(220, floatStage.clientHeight - pad*2);
   floatEls.forEach(it => {
     it.left = Math.max(pad, Math.min(pad + width - itemW, it.left));
     it.top  = Math.max(pad, Math.min(pad + height - itemW, it.top));
@@ -314,16 +313,15 @@ function positionAllFloatElements(keepRelative=false) {
   });
 }
 
-// --------------- Member selection and view ----------------
+// --------------- Member selection and badge lists with category filters ----------------
 
 function selectMember(member) {
-  // find freshest earned items for this member in EARNED
   const memberEarned = EARNED.filter(e => e.member_id === member.id).map(e => {
     const badge = BADGES.find(b=>b.id === e.badge_id) || {};
-    return { name: badge.name || 'Unknown', file: (BADGE_IMAGES && BADGE_IMAGES.find(x=>x.badge_id===badge.id) && BADGE_IMAGES.find(x=>x.badge_id===badge.id).storage_path) || '', comment: e.comment, earned_at: e.earned_at, categories: badge.categories || [] };
+    const image = (badge.images && badge.images[0] && badge.images[0].storage_path) || '';
+    return { id: e.id, name: badge.name || 'Unknown', file: image, comment: e.comment, earned_at: e.earned_at, categories: badge.categories || [] };
   });
 
-  // Populate selected area
   selectedContainer.classList.remove('hide');
   selectedContainer.setAttribute('aria-hidden', 'false');
   document.getElementById('float-stage').classList.add('hide');
@@ -331,21 +329,17 @@ function selectMember(member) {
   document.getElementById('selected-avatar').style.background = member.avatar_color || '#555';
   document.getElementById('selected-name').textContent = member.display_name || member.initials;
   document.getElementById('selected-summary').textContent = `${memberEarned.length} badge${memberEarned.length===1?'':'s'} earned`;
-
-  // show back button
   document.getElementById('back-to-team').classList.remove('hide');
 
   // stats
   const statsGrid = document.getElementById('stats-grid');
   statsGrid.innerHTML = '';
   const totalEarned = memberEarned.length;
-  let lastBadge = '—', lastDate = null, totalStars = 0;
-  memberEarned.forEach(e=>{ totalStars += (e.star || 1); if(e.earned_at){ const d = new Date(e.earned_at); if(!lastDate || d>lastDate){ lastDate=d; lastBadge=e.name; } }});
+  let totalStars = 0;
+  memberEarned.forEach(e=>{ totalStars += (e.star || 1); });
   const statList = [
-    {label:'Last badge', value: lastDate ? lastDate.toLocaleDateString() : 'No badges yet'},
     {label:'Total badges', value: String(totalEarned)},
-    {label:'Stars awarded', value: String(totalStars)},
-    {label:'Most recent', value: lastBadge}
+    {label:'Stars awarded', value: String(totalStars)}
   ];
   statList.forEach(stat=>{
     const div = document.createElement('div'); div.className='stat';
@@ -353,33 +347,86 @@ function selectMember(member) {
     statsGrid.appendChild(div);
   });
 
-  // render earned row
+  // earned and available rows
   const earnedRow = document.getElementById('earned-row');
   const availableRow = document.getElementById('available-row');
   earnedRow.innerHTML = ''; availableRow.innerHTML = '';
 
-  if (memberEarned.length === 0) {
-    const empty = document.createElement('div'); empty.className='empty'; empty.textContent='No badges earned yet.'; earnedRow.appendChild(empty);
-  } else {
-    memberEarned.forEach(item => {
-      const card = buildBadgeCard({ name: item.name, file: item.file, short: item.comment, categories: item.categories }, true);
-      earnedRow.appendChild(card);
+  // build categories set
+  const allCategories = new Set();
+  BADGES.forEach(b => (b.categories || []).forEach(c=>allCategories.add(c)));
+  const cats = Array.from(allCategories).filter(Boolean).sort();
+
+  // category filters UI
+  function buildFilterUI(container, onChange) {
+    container.innerHTML = '';
+    const fdiv = document.createElement('div'); fdiv.className = 'filters';
+    const allBtn = document.createElement('button'); allBtn.className = 'filter-btn active'; allBtn.textContent = 'All';
+    allBtn.addEventListener('click', ()=>{ setFilter('All'); });
+    fdiv.appendChild(allBtn);
+    cats.forEach(cat=>{
+      const b = document.createElement('button'); b.className = 'filter-btn'; b.textContent = cat;
+      b.addEventListener('click', ()=>{ setFilter(cat); });
+      fdiv.appendChild(b);
     });
+    container.appendChild(fdiv);
+
+    function setFilter(sel) {
+      // update active state
+      fdiv.querySelectorAll('.filter-btn').forEach(btn=>{
+        btn.classList.toggle('active', btn.textContent === sel);
+      });
+      onChange(sel);
+    }
   }
 
-  // available badges: from BADGES filtered by eligibility
-  const earnedSet = new Set(memberEarned.map(e=>e.name));
-  BADGES.forEach(b => {
-    if (!earnedSet.has(b.name)) {
-      // determine eligible: if eligibility_type is 'everyone' or member is included in eligibility_user_ids
-      let eligible = (b.eligibility_type === 'everyone');
-      if (!eligible && b.eligibility_user_ids && b.eligibility_user_ids.length) {
-        eligible = b.eligibility_user_ids.includes(member.id);
-      }
-      const card = buildBadgeCard({ name: b.name, file: (b.images && b.images[0] && b.images[0].storage_path) || '', short: b.description, categories: b.categories || [] }, false, eligible);
-      availableRow.appendChild(card);
-    }
+  // render earned badges with filters
+  const earnedContainer = document.createElement('div');
+  const earnedFiltersHolder = document.createElement('div');
+  earnedContainer.appendChild(earnedFiltersHolder);
+  const earnedList = document.createElement('div'); earnedList.className='hrow'; earnedList.style.flexWrap='wrap'; earnedContainer.appendChild(earnedList);
+
+  buildFilterUI(earnedFiltersHolder, (sel) => {
+    earnedList.innerHTML = '';
+    let items = memberEarned.slice();
+    if (sel !== 'All') items = items.filter(i => (i.categories || []).includes(sel));
+    if (items.length === 0) { const e = document.createElement('div'); e.className='empty'; e.textContent='No badges in this category.'; earnedList.appendChild(e); }
+    items.forEach(it => {
+      const card = document.createElement('div');
+      card.className = 'badge-card earned';
+      const img = document.createElement('img'); img.src = publicUrl(it.file); img.alt = it.name;
+      img.onerror = ()=> img.style.display='none';
+      card.appendChild(img);
+      const name = document.createElement('div'); name.className='badge-name'; name.textContent = it.name; card.appendChild(name);
+      const descr = document.createElement('div'); descr.className='badge-desc'; descr.innerHTML = `${it.comment || ''} <div style="font-size:12px;color:var(--muted)">${it.earned_at ? new Date(it.earned_at).toLocaleDateString() : ''}</div>`;
+      card.appendChild(descr);
+      earnedList.appendChild(card);
+    });
   });
+
+  earnedRow.appendChild(earnedContainer);
+  // initial filter = All
+  earnedFiltersHolder.querySelector('.filter-btn').click();
+
+  // available badges: those not earned
+  const availableContainer = document.createElement('div');
+  const availableFiltersHolder = document.createElement('div');
+  availableContainer.appendChild(availableFiltersHolder);
+  const availableList = document.createElement('div'); availableList.className='hrow'; availableContainer.appendChild(availableList);
+
+  buildFilterUI(availableFiltersHolder, (sel) => {
+    availableList.innerHTML = '';
+    let items = BADGES.filter(b => !memberEarned.find(eb=>eb.name === b.name));
+    if (sel !== 'All') items = items.filter(b => (b.categories || []).includes(sel));
+    if (items.length === 0) { const e = document.createElement('div'); e.className='empty'; e.textContent='No badges in this category.'; availableList.appendChild(e); }
+    items.forEach(b => {
+      const card = buildBadgeCard({ id: b.id, name: b.name, file: (b.images && b.images[0] && b.images[0].storage_path) || '', short: b.description }, false, true, {});
+      availableList.appendChild(card);
+    });
+  });
+
+  availableRow.appendChild(availableContainer);
+  availableFiltersHolder.querySelector('.filter-btn').click();
 
   populateBadgeDescription(null);
 }
@@ -393,7 +440,7 @@ document.getElementById('back-to-team').addEventListener('click', () => {
   renderFloatingMembers();
 });
 
-// Suggest modal handlers (local stub)
+// Suggest modal handlers
 document.getElementById('suggest-btn').addEventListener('click', ()=> document.getElementById('suggest-modal').classList.remove('hide'));
 document.getElementById('s-cancel').addEventListener('click', ()=> document.getElementById('suggest-modal').classList.add('hide'));
 document.getElementById('s-submit').addEventListener('click', ()=> {
@@ -407,5 +454,5 @@ document.getElementById('s-submit').addEventListener('click', ()=> {
   document.getElementById('suggest-modal').classList.add('hide');
 });
 
-// escape html helper
+// simple escaper
 function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
