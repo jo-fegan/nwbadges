@@ -3,7 +3,7 @@
 // - Set SUPABASE_URL to your project URL.
 // - Your bucket is public and named "badges", which matches the BUCKET_NAME below.
 // - The app expects your public views: members_public, badges_public, earned_public.
-// - For direct browser reads, store the Apollo/anon key in localStorage:
+// - For direct browser reads, store the anon key in localStorage:
 //   localStorage.setItem('supabase_anon', 'sb_publishable_...');
 
 const SUPABASE_URL = 'https://qnclxwwfapexijgpweja.supabase.co';
@@ -20,7 +20,7 @@ const TABLES = {
 const THEME_KEY = 'nwbadges_theme_v1';
 
 function fetchHeaders() {
-  const h = { 'Accept': 'application/json' };
+  const h = { Accept: 'application/json' };
   if (SUPABASE_ANON_KEY) {
     h['apikey'] = SUPABASE_ANON_KEY;
     h['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY;
@@ -51,7 +51,7 @@ function publicUrl(storagePath) {
 
 function escapeHtml(s) {
   if (!s) return '';
-  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 function el(id) {
@@ -64,13 +64,13 @@ function onIfExists(id, ev, handler) {
   return e;
 }
 
-// Theme handling
+// Theme handling; shows the action, not the current state
 function applyTheme() {
   const theme = localStorage.getItem(THEME_KEY) || 'light';
   document.documentElement.classList.toggle('theme-dark', theme === 'dark');
   const toggle = el('theme-toggle');
   if (toggle) {
-    toggle.textContent = theme === 'dark' ? 'Dark mode' : 'Light mode';
+    toggle.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
   }
 }
 
@@ -80,7 +80,6 @@ function toggleTheme() {
   applyTheme();
 }
 
-// State
 let MEMBERS = [];
 let BADGES = [];
 let BADGE_IMAGES = [];
@@ -88,7 +87,6 @@ let EARNED = [];
 let floatEls = [];
 let movementTimer = null;
 
-// ---------- Init ----------
 async function init() {
   try {
     applyTheme();
@@ -100,7 +98,6 @@ async function init() {
       fetchTable(TABLES.earned, '?select=id,member_id,badge_id,earned_at,comment,star_count&order=earned_at.desc&limit=50')
     ]);
 
-    // map badge image rows
     const imagesByBadge = {};
     (BADGE_IMAGES || []).forEach(bi => {
       if (!bi || !bi.badge_id) return;
@@ -129,7 +126,6 @@ async function init() {
   }
 }
 
-// ---------- Recent activity ----------
 function renderRecent() {
   const root = el('recent-list');
   if (!root) return;
@@ -151,7 +147,6 @@ function renderRecent() {
     const when = r.earned_at ? new Date(r.earned_at).toLocaleDateString() : '';
     const memberInitial = r.member ? escapeHtml(r.member.initials) : 'Unknown';
     const badgeName = r.badge ? escapeHtml(r.badge.name) : 'Unknown badge';
-
     row.innerHTML = `<div><strong>${memberInitial}</strong> earned <strong>${badgeName}</strong> ${when}</div>`;
     wrap.appendChild(row);
   });
@@ -159,7 +154,6 @@ function renderRecent() {
   root.appendChild(wrap);
 }
 
-// ---------- All-badges panel ----------
 function renderAllBadges() {
   const root = el('all-badges');
   if (!root) return;
@@ -182,7 +176,6 @@ function renderAllBadges() {
   });
 }
 
-// Build badge card
 function buildBadgeCard(item, earned = false, eligible = true, opts = {}) {
   const card = document.createElement('div');
   card.className = 'badge-card ' + (earned ? 'earned' : 'unearned');
@@ -234,12 +227,10 @@ function populateBadgeDescription(item) {
     box.textContent = 'Select a badge to view its description.';
     return;
   }
-
   const cats = (item.categories && item.categories.length) ? '[' + item.categories.join(', ') + '] ' : '';
   box.textContent = cats + (item.short || 'No description available.');
 }
 
-// ---------- Floating initials ----------
 function getFloatItemSize() {
   const w = window.innerWidth;
   if (w < 420) return 52;
@@ -287,7 +278,6 @@ function renderFloatingMembers() {
     div.style.fontWeight = '800';
     div.innerHTML = `<div class="initial">${escapeHtml(m.initials || m.display_name || '')}</div>`;
     div.title = m.display_name || m.initials;
-
     div.addEventListener('click', () => selectMember(m));
     stage.appendChild(div);
 
@@ -315,7 +305,6 @@ function startMovementLoop() {
 
   movementTimer = setInterval(() => {
     if (!floatEls || floatEls.length === 0) return;
-
     const stage = el('float-stage');
     if (!stage) return;
 
@@ -335,7 +324,6 @@ function startMovementLoop() {
         nx = Math.max(pad, Math.min(pad + width - itemW, it.left + (Math.random() * 2 - 1) * maxShift));
         ny = Math.max(pad, Math.min(pad + height - itemW, it.top + (Math.random() * 2 - 1) * maxShift));
         attempts++;
-
         if (attempts > 300) break;
 
         let coll = false;
@@ -386,7 +374,6 @@ function positionAllFloatElements(keepRelative = false) {
   });
 }
 
-// ---------- Member selection ----------
 function selectMember(member) {
   if (!member) return;
 
@@ -516,7 +503,13 @@ function selectMember(member) {
           card.appendChild(img);
         } else {
           const p = document.createElement('div');
-          p.style.width = '88px'; p.style.height = '88px'; p.style.borderRadius = '8px'; p.style.display = 'flex'; p.style.alignItems = 'center'; p.style.justifyContent = 'center'; p.textContent = '—';
+          p.style.width = '88px';
+          p.style.height = '88px';
+          p.style.borderRadius = '8px';
+          p.style.display = 'flex';
+          p.style.alignItems = 'center';
+          p.style.justifyContent = 'center';
+          p.textContent = '—';
           card.appendChild(p);
         }
 
@@ -560,11 +553,9 @@ function selectMember(member) {
   }));
 
   renderList(availableBadges, availableRow, 'available');
-
   populateBadgeDescription(null);
 }
 
-// ---------- Verify images ----------
 async function verifyBadgeImages() {
   if (!BADGE_IMAGES || BADGE_IMAGES.length === 0) return;
 
@@ -586,10 +577,9 @@ async function verifyBadgeImages() {
   }
 }
 
-// ---------- DOM ready ----------
 document.addEventListener('DOMContentLoaded', () => {
-  // Safe listeners
   onIfExists('theme-toggle', 'click', toggleTheme);
+
   onIfExists('suggest-btn', 'click', () => {
     const modal = el('suggest-modal');
     if (modal) modal.classList.remove('hide');
@@ -634,7 +624,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // init app
   init();
 });
 
@@ -642,5 +631,4 @@ window.addEventListener('resize', () => {
   positionAllFloatElements(true);
 });
 
-// expose state for debugging
 window._nw = { MEMBERS, BADGES, BADGE_IMAGES, EARNED, publicUrl, verifyBadgeImages };
