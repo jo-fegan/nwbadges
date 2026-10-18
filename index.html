@@ -2,20 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>NW Badges — Team</title>
+  <title>NW Badges — Who's awesome today?</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
   <header>
     <div class="brand">
-      <h1>NW Badges — Team</h1>
-      <div class="muted">Click an initial to inspect a member.</div>
+      <h1>NW Badges — Who's awesome today?</h1>
+      <div class="muted">Small celebration board — tap an initial to learn more.</div>
     </div>
 
     <div class="controls">
-      <button id="team-view-btn" class="hide">← Team view</button>
-      <button id="theme-toggle">Toggle theme</button>
+      <button id="theme-toggle">Light mode</button>
       <button id="suggest-btn">Suggest badge</button>
     </div>
   </header>
@@ -25,8 +24,11 @@
       <div id="selected-container" class="panel hide" aria-hidden="true">
         <div class="selected-area">
           <div id="selected-avatar" class="selected-avatar">JZ</div>
-          <div>
-            <div id="selected-name" class="selected-name">JZ</div>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div id="selected-name" class="selected-name">JZ</div>
+              <button id="back-to-team" class="small-btn hide">Back to team</button>
+            </div>
             <div id="selected-summary" class="muted">Summary</div>
           </div>
         </div>
@@ -58,16 +60,21 @@
     <aside class="right-col">
       <div class="panel">
         <strong>Recent activity</strong>
-        <div id="recent-list" class="muted">No recent activity yet.</div>
+        <div id="recent-list" class="muted" style="margin-top:10px">Loading…</div>
       </div>
 
       <div class="panel" style="margin-top:12px">
         <strong>About this view</strong>
         <div class="muted" style="margin-top:8px;line-height:1.5">
-          • Click an initial to inspect a member; the selected member moves to the top-left area.<br>
-          • KPIs show last badge, total badges, stars and most recent badge.<br>
-          • Earned badges are shown first, then available-to-earn badges with short descriptions.
+          • Tap an initial to inspect a team member. The selected member appears above with KPIs.<br>
+          • Earned badges use the earned_badges table; recent activity is live from the DB.<br>
+          • Use the badges panel below to browse all badges and see categories.
         </div>
+      </div>
+
+      <div class="panel" style="margin-top:12px">
+        <strong>All badges</strong>
+        <div id="all-badges" class="hrow" style="padding-top:12px"></div>
       </div>
     </aside>
   </main>
@@ -80,8 +87,6 @@
       <input id="s-name" type="text" />
       <label>Description</label>
       <textarea id="s-desc"></textarea>
-      <label>Attach images (optional)</label>
-      <input id="s-files" type="file" accept="image/*" multiple />
       <div class="actions">
         <button id="s-cancel">Cancel</button>
         <button id="s-submit">Submit</button>
