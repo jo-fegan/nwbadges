@@ -4,480 +4,91 @@
   <meta charset="utf-8" />
   <title>NW Badges — Team</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    :root{
-      --bg:#f6f8fb; --card:#fff; --text:#111; --muted:#666; --accent:#2b7cff; --glass: rgba(0,0,0,0.04);
-    }
-    .theme-dark{
-      --bg:#071025; --card:#071022; --text:#e6eef8; --muted:#9aa7b3; --accent:#4fb3ff; --glass: rgba(255,255,255,0.03);
-    }
-    html,body{height:100%}
-    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; padding:20px;}
-    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
-    h1{margin:0;font-size:20px}
-    .controls{display:flex;gap:8px;align-items:center}
-    button{background:var(--card);border:1px solid var(--glass);padding:8px 10px;border-radius:8px;color:var(--text);cursor:pointer}
-    .layout{display:flex;gap:20px;margin-top:18px;align-items:flex-start}
-    .members{display:flex;flex-wrap:wrap;gap:12px;max-width:900px}
-    .member{width:160px;background:var(--card);border-radius:10px;padding:12px;box-shadow:0 4px 10px rgba(0,0,0,0.04);cursor:pointer}
-    .avatar{width:56px;height:56px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;margin-bottom:8px}
-    .name{font-weight:700;margin-bottom:6px}
-    .badges{display:flex;flex-direction:column;gap:10px;margin-top:8px}
-    .badge{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;background:var(--glass)}
-    .badge img{width:56px;height:56px;object-fit:contain;border-radius:6px}
-    .badge.unearned img{filter:grayscale(100%);opacity:.6}
-    .badge .meta{font-size:13px}
-    .right-col{min-width:320px;max-width:420px}
-    .panel{background:var(--card);padding:12px;border-radius:10px}
-    .recent{display:flex;flex-direction:column;gap:8px}
-    .recent-item{display:flex;align-items:center;gap:8px}
-    .small-avatar{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
-    /* modal */
-    .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:60}
-    .modal{width:720px;max-width:95%;background:var(--card);border-radius:10px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.4)}
-    .modal h3{margin:0 0 8px}
-    label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
-    input[type="text"], textarea {width:100%;padding:8px;border-radius:6px;border:1px solid var(--glass);background:transparent;color:var(--text)}
-    textarea{min-height:80px}
-    .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
-    .muted{color:var(--muted);font-size:13px}
-    .link{background:transparent;border:0;color:var(--accent);cursor:pointer;padding:0}
-    footer{margin-top:18px;color:var(--muted);font-size:13px}
-    @media (max-width:800px){
-      .layout{flex-direction:column}
-      .right-col{max-width:none}
-    }
-  </style>
+  <link rel="stylesheet" href="/src/styles.css">
 </head>
 <body>
   <header>
-    <div>
+    <div class="brand">
       <h1>NW Badges — Team</h1>
-      <div class="muted">Click a member to inspect badges. Uses public Supabase storage for badge images.</div>
+      <div class="muted">Click an initial to inspect a member.</div>
     </div>
 
     <div class="controls">
+      <button id="team-view-btn" class="hide">← Team view</button>
       <button id="theme-toggle">Toggle theme</button>
       <button id="suggest-btn">Suggest badge</button>
-      <button id="settings-btn">Settings</button>
     </div>
   </header>
 
-  <div class="layout">
-    <div>
-      <div class="members" id="members" aria-live="polite"></div>
-    </div>
+  <main class="layout">
+    <section class="left-col">
+      <div id="selected-container" class="panel hide" aria-hidden="true">
+        <div class="selected-area">
+          <div id="selected-avatar" class="selected-avatar">JZ</div>
+          <div>
+            <div id="selected-name" class="selected-name">JZ</div>
+            <div id="selected-summary" class="muted">Summary</div>
+          </div>
+        </div>
+
+        <div id="stats-grid" class="stats-grid"></div>
+
+        <div class="hr"></div>
+
+        <div>
+          <strong>Earned badges</strong>
+          <div id="earned-row" class="hrow" aria-label="Earned badges"></div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div>
+          <strong>Available to earn</strong>
+          <div id="available-row" class="hrow" aria-label="Available badges"></div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div id="badge-description" class="badge-desc">Select a badge to view its description.</div>
+      </div>
+
+      <div id="float-stage" class="float-stage panel" aria-live="polite"></div>
+    </section>
 
     <aside class="right-col">
-      <div class="panel recent">
-        <strong>Recent earned</strong>
-        <div id="recent-list" class="muted">No recent activity</div>
+      <div class="panel">
+        <strong>Recent activity</strong>
+        <div id="recent-list" class="muted">No recent activity yet.</div>
       </div>
 
       <div class="panel" style="margin-top:12px">
-        <strong>Notes</strong>
-        <div class="muted" style="margin-top:8px">
-          - Badge images are color PNGs stored publicly in Supabase and shown in color only when earned (CSS grayscale otherwise).<br>
-          - Admin-only edits (mark earned, comments) are done directly in Supabase console for this MVP.<br>
-          - Suggest badge opens a lightweight form; if you provide an anon key in Settings the form will attempt to insert the suggestion (may require public insert policy).
+        <strong>About this view</strong>
+        <div class="muted" style="margin-top:8px;line-height:1.5">
+          • Click an initial to inspect a member; the selected member moves to the top-left area.<br>
+          • KPIs show last badge, total badges, stars and most recent badge.<br>
+          • Earned badges are shown first, then available-to-earn badges with short descriptions.
         </div>
       </div>
     </aside>
-  </div>
+  </main>
 
-  <footer>
-    <div class="muted">Static demo. To connect to Supabase for dynamic data, open Settings and enter your Project URL and anon key.</div>
-  </footer>
-
-  <!-- Settings modal -->
-  <div id="settings-modal" style="display:none;">
-    <div class="overlay" id="settings-overlay">
-      <div class="modal" role="dialog" aria-modal="true">
-        <h3>Settings</h3>
-        <div>
-          <label>Supabase project URL (example: https://xxxxx.supabase.co)</label>
-          <input id="input-project" type="text" placeholder="https://...">
-          <label>Supabase anon key (optional)</label>
-          <input id="input-anon" type="text" placeholder="anon key">
-          <div class="muted" style="margin-top:8px">Project URL is used to build public image URLs. Anon key is only used to attempt suggestion inserts and will be stored in your browser's localStorage.</div>
-        </div>
-        <div class="actions">
-          <button id="settings-cancel">Cancel</button>
-          <button id="settings-save">Save</button>
-        </div>
+  <!-- Suggest modal (stub) -->
+  <div id="suggest-modal" class="overlay hide">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3>Suggest a new badge</h3>
+      <label>Badge name</label>
+      <input id="s-name" type="text" />
+      <label>Description</label>
+      <textarea id="s-desc"></textarea>
+      <label>Attach images (optional)</label>
+      <input id="s-files" type="file" accept="image/*" multiple />
+      <div class="actions">
+        <button id="s-cancel">Cancel</button>
+        <button id="s-submit">Submit</button>
       </div>
     </div>
   </div>
 
-  <!-- Member detail modal -->
-  <div id="member-modal" style="display:none;">
-    <div class="overlay" id="member-overlay">
-      <div class="modal" role="dialog" aria-modal="true">
-        <button id="member-close" style="float:right">Close</button>
-        <div id="member-content"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Suggest modal -->
-  <div id="suggest-modal" style="display:none;">
-    <div class="overlay" id="suggest-overlay">
-      <div class="modal" role="dialog" aria-modal="true">
-        <h3>Suggest a new badge</h3>
-        <div>
-          <label>Badge name</label>
-          <input id="s-name" type="text" />
-          <label>Description</label>
-          <textarea id="s-desc"></textarea>
-          <label>Attach up to 3 images (these are local only in this stub)</label>
-          <input id="s-files" type="file" accept="image/*" multiple />
-          <div class="muted" style="margin-top:8px">If you supplied a Supabase anon key in Settings, the form will attempt to POST the suggestion to your project's REST API (/rest/v1/suggestions). This requires insert permissions for anon or an appropriate policy.</div>
-        </div>
-        <div class="actions">
-          <button id="s-cancel">Cancel</button>
-          <button id="s-submit">Submit</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Defaults (your public storage base from earlier)
-    const DEFAULT_SUPABASE_PROJECT = 'https://qnclxwwfapexijgpweja.supabase.co';
-    const DEFAULT_BUCKET = 'badges';
-    const DEFAULT_PUBLIC_BASE = DEFAULT_SUPABASE_PROJECT + '/storage/v1/object/public/' + DEFAULT_BUCKET;
-
-    // Badges known in the repo
-    const BADGES = [
-      { name: 'Firetruck', file: 'firetruck.png' },
-      { name: 'MrSmith',  file: 'mrsmith.png' },
-      { name: 'Cowboy',   file: 'cowboy.png' }
-    ];
-
-    // Eligibility mapping (explicit for this MVP): only JZ and BC
-    const ELIGIBILITY = {
-      'Firetruck': ['JZ','BC'],
-      'MrSmith': ['JZ','BC'],
-      'Cowboy': ['JZ','BC']
-    };
-
-    // Seed members (you can edit this locally or later wire to Supabase)
-    const MEMBERS = [
-      { id:'m-jz', initials:'JZ', display_name:'JZ', avatar_color:'#b6561a', earned:[{name:'Firetruck',comment:'for the CSSD brief in October',star:1},{name:'Cowboy',comment:'Great work',star:1}] },
-      { id:'m-jt', initials:'JT', display_name:'JT', avatar_color:'#007c96', earned:[] },
-      { id:'m-bc', initials:'BC', display_name:'BC', avatar_color:'#ffc491', earned:[{name:'MrSmith',comment:'Well done',star:1}] },
-      { id:'m-cr', initials:'CR', display_name:'CR', avatar_color:'#f3fdce', earned:[] },
-      { id:'m-ss', initials:'SS', display_name:'SS', avatar_color:'#b6561a', earned:[] },
-      { id:'m-km', initials:'KM', display_name:'KM', avatar_color:'#007c96', earned:[] }
-    ];
-
-    // --- State, settings persisted in localStorage
-    const storage = window.localStorage;
-    const SETTINGS_KEY = 'nwbadges_settings_v1';
-    function loadSettings(){
-      try{
-        const raw = storage.getItem(SETTINGS_KEY);
-        if(raw) return JSON.parse(raw);
-      }catch(e){}
-      return { projectUrl: DEFAULT_SUPABASE_PROJECT, anonKey: '' };
-    }
-    function saveSettings(s){ storage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
-    let settings = loadSettings();
-
-    // Theme
-    const THEME_KEY = 'nwbadges_theme';
-    function loadTheme(){ return storage.getItem(THEME_KEY) || 'light'; }
-    function saveTheme(t){ storage.setItem(THEME_KEY, t); }
-    function applyTheme(){
-      const theme = loadTheme();
-      if(theme === 'dark') document.documentElement.classList.add('theme-dark'); else document.documentElement.classList.remove('theme-dark');
-    }
-
-    // Helpers
-    function publicUrlFor(file){ const base = (settings && settings.projectUrl ? settings.projectUrl : DEFAULT_SUPABASE_PROJECT) + '/storage/v1/object/public/' + DEFAULT_BUCKET; return base + '/' + encodeURIComponent(file); }
-
-    // Render members
-    function renderMembers(){
-      const container = document.getElementById('members');
-      container.innerHTML = '';
-      MEMBERS.forEach(m=>{
-        const el = document.createElement('div');
-        el.className = 'member';
-        el.setAttribute('role','button');
-        el.innerHTML = `
-          <div class="avatar" style="background:${m.avatar_color}">${m.initials}</div>
-          <div class="name">${m.display_name}</div>
-          <div class="badges">
-            ${BADGES.map(b=>{
-              const earned = m.earned.some(e=>e.name === b.name);
-              return `<div class="badge ${earned ? 'earned' : 'unearned'}" data-badge="${b.name}" data-member="${m.initials}">
-                        <img src="${publicUrlFor(b.file)}" alt="${b.name}">
-                        <div class="meta">${b.name}</div>
-                      </div>`;
-            }).join('')}
-          </div>
-        `;
-        el.addEventListener('click', ()=>openMemberModal(m));
-        container.appendChild(el);
-      });
-    }
-
-    // Recent list
-    function renderRecent(){
-      const list = document.getElementById('recent-list');
-      // build recent earned across MEMBERS
-      const items = [];
-      MEMBERS.forEach(m=>{
-        m.earned.forEach(e=>{
-          items.push({ member: m, badge: e, at: e.earned_at || new Date().toISOString() });
-        });
-      });
-      items.sort((a,b)=> new Date(b.at) - new Date(a.at));
-      const top = items.slice(0,5);
-      if(top.length === 0){ list.textContent = 'No recent activity'; return; }
-      list.innerHTML = '';
-      top.forEach(it=>{
-        const row = document.createElement('div');
-        row.className = 'recent-item';
-        row.innerHTML = `<div class="small-avatar" style="background:${it.member.avatar_color}">${it.member.initials}</div>
-                         <div><strong>${it.member.initials}</strong> earned <strong>${it.badge.name}</strong><div class="muted">${it.badge.comment || ''}</div></div>`;
-        list.appendChild(row);
-      });
-    }
-
-    // Member modal
-    function openMemberModal(member){
-      const content = document.getElementById('member-content');
-      content.innerHTML = '';
-      const header = document.createElement('div');
-      header.innerHTML = `<div style="display:flex;gap:12px;align-items:center">
-        <div class="avatar" style="background:${member.avatar_color}">${member.initials}</div>
-        <div><h3 style="margin:0">${member.display_name}</h3><div class="muted">Initials: ${member.initials}</div></div>
-      </div><hr/>`;
-      content.appendChild(header);
-
-      // Earned
-      const earnedBox = document.createElement('div');
-      earnedBox.innerHTML = '<strong>Earned</strong>';
-      const earnedList = document.createElement('div');
-      earnedList.style.marginTop = '8px';
-      if(member.earned.length === 0) earnedList.innerHTML = '<div class="muted">No badges yet.</div>';
-      else {
-        member.earned.forEach(e=>{
-          const badge = BADGES.find(b=>b.name===e.name) || { name: e.name, file: '' };
-          const div = document.createElement('div');
-          div.className = 'badge earned';
-          div.style.marginBottom = '8px';
-          div.innerHTML = `<img src="${publicUrlFor(badge.file)}" alt="${badge.name}"><div class="meta"><div><strong>${badge.name}</strong></div><div class="muted">${e.comment || ''}</div></div>`;
-          earnedList.appendChild(div);
-        });
-      }
-      earnedBox.appendChild(earnedList);
-      content.appendChild(earnedBox);
-
-      // Available
-      const availBox = document.createElement('div');
-      availBox.style.marginTop = '12px';
-      availBox.innerHTML = '<strong>Available to earn</strong>';
-      const availList = document.createElement('div');
-      availList.style.marginTop = '8px';
-      BADGES.forEach(b=>{
-        const already = member.earned.some(x=>x.name===b.name);
-        const eligibleList = ELIGIBILITY[b.name] || [];
-        const eligible = eligibleList.includes(member.initials) || eligibleList.length === 0;
-        const div = document.createElement('div');
-        div.className = 'badge ' + (already ? 'earned' : 'unearned');
-        div.style.marginBottom = '8px';
-        div.innerHTML = `<img src="${publicUrlFor(b.file)}" alt="${b.name}"><div class="meta"><div><strong>${b.name}</strong></div>
-                         <div class="muted">${already ? 'Earned' : (eligible ? 'Eligible' : 'Not eligible')}</div></div>`;
-        // action
-        const action = document.createElement('div');
-        action.style.marginTop = '6px';
-        if(!already && eligible){
-          const btn = document.createElement('button');
-          btn.textContent = 'Ask to earn';
-          btn.onclick = (ev)=>{ ev.stopPropagation(); askToEarn(member, b); };
-          action.appendChild(btn);
-        } else if(!already && !eligible){
-          const span = document.createElement('div'); span.className='muted'; span.textContent='Not eligible'; action.appendChild(span);
-        }
-        div.appendChild(action);
-        availList.appendChild(div);
-      });
-      availBox.appendChild(availList);
-      content.appendChild(availBox);
-
-      // show modal
-      document.getElementById('member-modal').style.display = 'block';
-    }
-
-    function closeMemberModal(){ document.getElementById('member-modal').style.display = 'none'; }
-
-    // Ask to earn flow (creates a local request or posts to REST if anon key set)
-    async function askToEarn(member, badge){
-      const confirmOk = confirm(`Send a request to admin to award '${badge.name}' to ${member.initials}?`);
-      if(!confirmOk) return;
-      const suggestion = {
-        type: 'ask_to_earn',
-        member: member.initials,
-        badge: badge.name,
-        created_at: new Date().toISOString()
-      };
-      // try REST insert if anon key present
-      if(settings && settings.anonKey){
-        const restUrl = (settings.projectUrl||DEFAULT_SUPABASE_PROJECT) + '/rest/v1/suggestions';
-        try{
-          const res = await fetch(restUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type':'application/json',
-              'apikey': settings.anonKey,
-              'Authorization': 'Bearer ' + settings.anonKey,
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({ name: `Ask: ${badge.name}`, description: `Member ${member.initials} requested to earn ${badge.name}`, agent_conversation: JSON.stringify(suggestion), generated_image_paths: [], status:'pending' })
-          });
-          if(res.ok){
-            alert('Request submitted to admin (via REST).');
-            closeMemberModal();
-            return;
-          } else {
-            console.warn('REST insert failed', res.status, await res.text());
-            alert('Could not submit via REST. Stored locally as fallback.');
-          }
-        }catch(err){
-          console.warn('REST error', err);
-          alert('Error contacting REST API; stored locally as fallback.');
-        }
-      }
-      // fallback: store in localStorage suggestions queue
-      const key = 'nwbadges_local_suggestions';
-      const cur = JSON.parse(localStorage.getItem(key) || '[]');
-      cur.push(suggestion);
-      localStorage.setItem(key, JSON.stringify(cur));
-      alert('Request saved locally (admin can view in your browser).');
-      closeMemberModal();
-    }
-
-    // Suggest modal handlers
-    function openSuggest(){ document.getElementById('suggest-modal').style.display='block'; }
-    function closeSuggest(){ document.getElementById('suggest-modal').style.display='none'; }
-
-    async function submitSuggest(){
-      const name = document.getElementById('s-name').value.trim();
-      const desc = document.getElementById('s-desc').value.trim();
-      const files = Array.from(document.getElementById('s-files').files || []);
-      if(!name){ alert('Please provide a badge name'); return; }
-
-      const payload = { name, description: desc, created_at: new Date().toISOString(), generated_image_paths: [], status: 'pending' };
-
-      // If anon key present, attempt REST insert
-      if(settings && settings.anonKey){
-        const restUrl = (settings.projectUrl||DEFAULT_SUPABASE_PROJECT) + '/rest/v1/suggestions';
-        try{
-          const res = await fetch(restUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type':'application/json',
-              'apikey': settings.anonKey,
-              'Authorization': 'Bearer ' + settings.anonKey,
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({ name, description: desc, agent_conversation: JSON.stringify({ stub: true }), generated_image_paths: [], status: 'pending' })
-          });
-          if(res.ok){
-            alert('Suggestion submitted to admin via REST.');
-            closeSuggest();
-            return;
-          } else {
-            console.warn('REST insert failed', res.status, await res.text());
-            alert('Could not submit via REST; saved locally.');
-          }
-        }catch(err){
-          console.warn('REST error', err);
-          alert('Error contacting REST API; saved locally.');
-        }
-      }
-
-      // Local fallback: store suggestion + images as data URLs (small files only)
-      for(const f of files.slice(0,3)){
-        try{
-          const dataUrl = await fileToDataUrl(f);
-          payload.generated_image_paths.push(dataUrl);
-        } catch(e){}
-      }
-      const key = 'nwbadges_local_suggestions';
-      const cur = JSON.parse(localStorage.getItem(key) || '[]');
-      cur.push(payload);
-      localStorage.setItem(key, JSON.stringify(cur));
-      alert('Suggestion saved locally; admin will need to review it in your browser or via Supabase console.');
-      closeSuggest();
-    }
-
-    function fileToDataUrl(file){
-      return new Promise((res, rej)=>{
-        const r = new FileReader();
-        r.onload = ()=>res(r.result);
-        r.onerror = e=>rej(e);
-        r.readAsDataURL(file);
-      });
-    }
-
-    // Settings modal
-    function openSettings(){
-      document.getElementById('settings-modal').style.display='block';
-      document.getElementById('input-project').value = settings.projectUrl || DEFAULT_SUPABASE_PROJECT;
-      document.getElementById('input-anon').value = settings.anonKey || '';
-    }
-    function closeSettings(){ document.getElementById('settings-modal').style.display='none'; }
-
-    function saveSettingsHandler(){
-      const p = document.getElementById('input-project').value.trim() || DEFAULT_SUPABASE_PROJECT;
-      const a = document.getElementById('input-anon').value.trim();
-      settings = { projectUrl: p, anonKey: a };
-      saveSettings(settings);
-      alert('Settings saved locally.');
-      closeSettings();
-      renderAll();
-    }
-
-    // Theme toggle
-    function toggleTheme(){
-      const cur = localStorage.getItem(THEME_KEY) || 'light';
-      const next = cur === 'dark' ? 'light' : 'dark';
-      saveTheme(next);
-      applyTheme();
-    }
-
-    // Init UI and event wiring
-    function renderAll(){
-      applyTheme();
-      renderMembers();
-      renderRecent();
-    }
-
-    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
-    document.getElementById('settings-btn').addEventListener('click', openSettings);
-    document.getElementById('settings-cancel').addEventListener('click', closeSettings);
-    document.getElementById('settings-save').addEventListener('click', saveSettingsHandler);
-
-    document.getElementById('member-close').addEventListener('click', closeMemberModal);
-    document.getElementById('member-overlay').addEventListener('click', (e)=>{ if(e.target.id==='member-overlay') closeMemberModal(); });
-
-    document.getElementById('suggest-btn').addEventListener('click', openSuggest);
-    document.getElementById('s-cancel').addEventListener('click', closeSuggest);
-    document.getElementById('s-submit').addEventListener('click', submitSuggest);
-    document.getElementById('suggest-overlay').addEventListener('click', (e)=>{ if(e.target.id==='suggest-overlay') closeSuggest(); });
-
-    document.getElementById('settings-overlay').addEventListener('click', (e)=>{ if(e.target.id==='settings-overlay') closeSettings(); });
-
-    // initialize theme from storage
-    (function init(){
-      if(!localStorage.getItem(THEME_KEY)) saveTheme('light');
-      applyTheme();
-      settings = loadSettings();
-      renderAll();
-    })();
-  </script>
+  <script type="module" src="/src/app.js"></script>
 </body>
 </html>
