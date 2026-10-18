@@ -9,11 +9,12 @@ const SUPABASE_URL = 'https://qnclxwwfapexijgpweja.supabase.co';
 let SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon') || ''; // optional; set in DevTools or edit here
 
 const TABLES = {
-  members: 'members',
-  badges: 'badges',
-  badge_images: 'badge_images',
-  earned: 'earned_badges'
+  members: 'members_public',
+  badges: 'badges_public',
+  badge_images: 'badge_images',   // images can stay as-is (bucket filenames)
+  earned: 'earned_public'
 };
+
 
 const fetchHeaders = () => {
   const h = { 'Accept': 'application/json' };
