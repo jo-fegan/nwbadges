@@ -19,11 +19,13 @@ const TABLES = {
 
 const THEME_KEY = 'nwbadges_theme_v1';
 
+// Read anon key from localStorage at call time so REST requests always use the current value
 function fetchHeaders() {
-  const h = { Accept: 'application/json' };
-  if (SUPABASE_ANON_KEY) {
-    h['apikey'] = SUPABASE_ANON_KEY;
-    h['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY;
+  const key = localStorage.getItem('supabase_anon') || '';
+  const h = { 'Accept': 'application/json' };
+  if (key) {
+    h['apikey'] = key;
+    h['Authorization'] = 'Bearer ' + key;
   }
   return h;
 }
@@ -44,9 +46,11 @@ async function fetchTable(table, params = '') {
   }
 }
 
+// encode each path segment so folder structure is preserved
 function publicUrl(storagePath) {
   if (!storagePath) return '';
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${encodeURIComponent(storagePath)}`;
+  const encoded = storagePath.split('/').map(encodeURIComponent).join('/');
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${encoded}`;
 }
 
 function escapeHtml(s) {
@@ -98,6 +102,7 @@ async function init() {
       fetchTable(TABLES.earned, '?select=id,member_id,badge_id,earned_at,comment,star_count&order=earned_at.desc&limit=50')
     ]);
 
+    // map badge image rows
     const imagesByBadge = {};
     (BADGE_IMAGES || []).forEach(bi => {
       if (!bi || !bi.badge_id) return;
@@ -121,11 +126,20 @@ async function init() {
     renderAllBadges();
     renderFloatingMembers();
     verifyBadgeImages();
+
+    // publish runtime state for easier debugging from the Console
+    window._nw = { MEMBERS, BADGES, BADGE_IMAGES, EARNED, publicUrl, verifyBadgeImages };
+    console.info('nw state:', {
+      badges: (BADGES || []).length,
+      badge_images: (BADGE_IMAGES || []).length,
+      badges_with_images: (BADGES || []).filter(b => (b.images || []).length).length
+    });
   } catch (err) {
     console.error('Init error', err);
   }
 }
 
+// ---------- Recent activity ----------
 function renderRecent() {
   const root = el('recent-list');
   if (!root) return;
@@ -147,6 +161,7 @@ function renderRecent() {
     const when = r.earned_at ? new Date(r.earned_at).toLocaleDateString() : '';
     const memberInitial = r.member ? escapeHtml(r.member.initials) : 'Unknown';
     const badgeName = r.badge ? escapeHtml(r.badge.name) : 'Unknown badge';
+
     row.innerHTML = `<div><strong>${memberInitial}</strong> earned <strong>${badgeName}</strong> ${when}</div>`;
     wrap.appendChild(row);
   });
@@ -154,6 +169,7 @@ function renderRecent() {
   root.appendChild(wrap);
 }
 
+// ---------- All-badges panel ----------
 function renderAllBadges() {
   const root = el('all-badges');
   if (!root) return;
@@ -176,6 +192,7 @@ function renderAllBadges() {
   });
 }
 
+// Build badge card
 function buildBadgeCard(item, earned = false, eligible = true, opts = {}) {
   const card = document.createElement('div');
   card.className = 'badge-card ' + (earned ? 'earned' : 'unearned');
@@ -231,6 +248,7 @@ function populateBadgeDescription(item) {
   box.textContent = cats + (item.short || 'No description available.');
 }
 
+// ---------- Floating initials ----------
 function getFloatItemSize() {
   const w = window.innerWidth;
   if (w < 420) return 52;
@@ -278,6 +296,7 @@ function renderFloatingMembers() {
     div.style.fontWeight = '800';
     div.innerHTML = `<div class="initial">${escapeHtml(m.initials || m.display_name || '')}</div>`;
     div.title = m.display_name || m.initials;
+
     div.addEventListener('click', () => selectMember(m));
     stage.appendChild(div);
 
@@ -305,6 +324,7 @@ function startMovementLoop() {
 
   movementTimer = setInterval(() => {
     if (!floatEls || floatEls.length === 0) return;
+
     const stage = el('float-stage');
     if (!stage) return;
 
@@ -324,6 +344,7 @@ function startMovementLoop() {
         nx = Math.max(pad, Math.min(pad + width - itemW, it.left + (Math.random() * 2 - 1) * maxShift));
         ny = Math.max(pad, Math.min(pad + height - itemW, it.top + (Math.random() * 2 - 1) * maxShift));
         attempts++;
+
         if (attempts > 300) break;
 
         let coll = false;
@@ -503,13 +524,7 @@ function selectMember(member) {
           card.appendChild(img);
         } else {
           const p = document.createElement('div');
-          p.style.width = '88px';
-          p.style.height = '88px';
-          p.style.borderRadius = '8px';
-          p.style.display = 'flex';
-          p.style.alignItems = 'center';
-          p.style.justifyContent = 'center';
-          p.textContent = '—';
+          p.style.width = '88px'; p.style.height = '88px'; p.style.borderRadius = '8px'; p.style.display = 'flex'; p.style.alignItems = 'center'; p.style.justifyContent = 'center'; p.textContent = '—';
           card.appendChild(p);
         }
 
@@ -553,9 +568,11 @@ function selectMember(member) {
   }));
 
   renderList(availableBadges, availableRow, 'available');
+
   populateBadgeDescription(null);
 }
 
+// ---------- Verify images ----------
 async function verifyBadgeImages() {
   if (!BADGE_IMAGES || BADGE_IMAGES.length === 0) return;
 
@@ -577,9 +594,10 @@ async function verifyBadgeImages() {
   }
 }
 
+// ---------- DOM ready ----------
 document.addEventListener('DOMContentLoaded', () => {
+  // Safe listeners
   onIfExists('theme-toggle', 'click', toggleTheme);
-
   onIfExists('suggest-btn', 'click', () => {
     const modal = el('suggest-modal');
     if (modal) modal.classList.remove('hide');
@@ -624,6 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // init app
   init();
 });
 
@@ -631,4 +650,5 @@ window.addEventListener('resize', () => {
   positionAllFloatElements(true);
 });
 
+// expose state for debugging (initially empty) - runtime state updated after init
 window._nw = { MEMBERS, BADGES, BADGE_IMAGES, EARNED, publicUrl, verifyBadgeImages };
