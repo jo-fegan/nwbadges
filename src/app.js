@@ -77,6 +77,22 @@ function onIfExists(id, ev, handler) {
   return e;
 }
 
+// Choose readable text color (black/white) for a hex background color
+function luminance(hex) {
+  if (!hex) return 0;
+  const h = hex.replace('#','');
+  const r = parseInt(h.length===3 ? h[0]+h[0] : h.slice(0,2), 16)/255;
+  const g = parseInt(h.length===3 ? h[1]+h[1] : h.slice(2,4), 16)/255;
+  const b = parseInt(h.length===3 ? h[2]+h[2] : h.slice(4,6), 16)/255;
+  const a = [r,g,b].map(v => (v <= 0.03928) ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4));
+  return 0.2126*a[0] + 0.7152*a[1] + 0.0722*a[2];
+}
+function textColorForBg(hex) {
+  const lum = luminance(hex || '#000');
+  // threshold 0.75 makes very pale backgrounds use dark text
+  return lum > 0.75 ? '#111' : '#fff';
+}
+
 // Theme handling; shows the action, not the current state
 function applyTheme() {
   const theme = localStorage.getItem(THEME_KEY) || 'light';
@@ -302,7 +318,7 @@ function renderFloatingMembers() {
     div.style.height = itemW + 'px';
     div.style.borderRadius = '50%';
     div.style.background = m.avatar_color || '#888';
-    div.style.color = '#fff';
+    div.style.color = textColorForBg(m.avatar_color);
     div.style.display = 'flex';
     div.style.alignItems = 'center';
     div.style.justifyContent = 'center';
@@ -448,15 +464,22 @@ function selectMember(member) {
   if (summaryEl) summaryEl.textContent = `${memberEarned.length} badge${memberEarned.length === 1 ? '' : 's'} earned`;
 
   const backBtn = el('back-to-team');
-  if (backBtn) backBtn.classList.remove('hide');
+  if (backBtn) {
+    backBtn.textContent = 'Back to members';
+    backBtn.classList.remove('hide');
+  }
 
   const statsGrid = el('stats-grid');
   if (statsGrid) {
     statsGrid.innerHTML = '';
     let totalStars = 0;
     memberEarned.forEach(e => totalStars += (e.star || 1));
+    const totalBadges = memberEarned.length;
+    const badgesToClaim = (BADGES || []).filter(b => !memberEarned.some(e => e.name === b.name)).length;
+
     const statList = [
-      { label: 'Total badges', value: String(memberEarned.length) },
+      { label: 'Total badges', value: String(totalBadges) },
+      { label: 'Badges to claim', value: String(badgesToClaim) },
       { label: 'Stars awarded', value: String(totalStars) }
     ];
 
@@ -627,19 +650,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const nameInput = el('s-name');
     if (!nameInput) return;
     const name = nameInput.value.trim();
-    if (!name) {
-      alert('Please enter a name');
-      return;
-    }
-    const key = 'nwbadges_local_suggestions';
-    const cur = JSON.parse(localStorage.getItem(key) || '[]');
-    cur.push({
-      name,
-      desc: el('s-desc')?.value || '',
-      at: new Date().toISOString()
-    });
-    localStorage.setItem(key, JSON.stringify(cur));
-    alert('Saved locally.');
+    if (!name) { alert('Please enter a name'); return; }
+    const desc = el('s-desc')?.value || '';
+    const look = el('s-look')?.value || '';
+    const subject = encodeURIComponent(`Badge suggestion: ${name}`);
+    const body = encodeURIComponent(`Name: ${name}\n\nDescription:\n${desc}\n\nAppearance:\n${look}\n\nSubmitted from NW Badges`);
+    window.location.href = `mailto:jo.fegan@health.qld.gov.au?subject=${subject}&body=${body}`;
     const modal = el('suggest-modal');
     if (modal) modal.classList.add('hide');
   });
