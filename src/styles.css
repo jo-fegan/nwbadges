@@ -12,14 +12,14 @@ body{
   margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
   background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;padding:14px;
 }
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--glass)}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--glass);flex-wrap:wrap}
 .brand h1{margin:0;font-size:20px}
 .muted{color:var(--muted);font-size:13px}
 .controls{display:flex;gap:8px;align-items:center}
 button{background:var(--card);border:1px solid var(--glass);padding:8px 10px;border-radius:8px;color:var(--text);cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.02)}
 .small-btn{padding:6px 8px;border-radius:8px;font-size:13px}
-.layout{display:flex;gap:18px;margin-top:18px;align-items:flex-start}
-.left-col{flex:1}
+.layout{display:flex;gap:18px;margin-top:18px;align-items:flex-start;flex-wrap:wrap}
+.left-col{flex:1;min-width:300px}
 .right-col{min-width:300px;max-width:420px}
 .panel{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 4px 12px var(--shadow)}
 /* float area layout improvements */
@@ -33,20 +33,40 @@ button{background:var(--card);border:1px solid var(--glass);padding:8px 10px;bor
 .stat{background:var(--glass);padding:10px;border-radius:8px}
 .stat strong{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
 .hr{height:1px;background:var(--glass);margin:12px 0;border-radius:5px}
+
+/* Horizontal scrolling badge row - removed, replaced with badge-grid */
 .hrow{display:flex;gap:12px;overflow-x:auto;padding:6px 0 8px;scrollbar-width:thin}
+.badge-scroll{display:flex;gap:12px;overflow-x:auto;padding:6px 0 8px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+
+/* Badge card base styles */
 .badge-card{flex:0 0 auto;width:140px;padding:12px;border-radius:10px;background:var(--card);box-shadow:0 4px 12px rgba(0,0,0,0.03);display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
 .badge-card img{width:88px;height:88px;object-fit:contain;border-radius:8px}
-.badge-card.unearned img{filter:grayscale(100%);opacity:.6}
+.badge-card.unearned img{filter:grayscale(100%);opacity:0.6}
+.badge-card.fullcolor img{filter:none;opacity:1}
 .badge-name{margin-top:6px;font-weight:600;text-align:center;font-size:14px}
-.badge-desc{margin-top:8px;color:var(--muted);font-size:13px;line-height:1.4}
+.badge-desc{margin-top:8px;color:var(--muted);font-size:13px;line-height:1.4;text-align:center}
+.earned-date{font-size:11px;margin-top:4px}
 .empty{color:var(--muted);font-size:13px}
 .hide{display:none!important}
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:60}
 .modal{width:720px;max-width:95%;background:var(--card);border-radius:10px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.4)}
 .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
-.filters{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-.filter-btn{background:transparent;border:1px solid var(--glass);padding:6px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
-.filter-btn.active{border-color:var(--accent);color:var(--accent);background:linear-gradient(90deg, rgba(43,124,255,0.06), transparent)}
+
+/* New section header for stacked layout */
+.section-header{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.section-header h3{margin:0;font-size:16px;font-weight:700}
+
+/* Filter toolbar - horizontal chips above badge groups */
+.filter-toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.filter-chip{background:transparent;border:1px solid var(--glass);padding:6px 12px;border-radius:16px;cursor:pointer;color:var(--muted);font-size:13px;transition:all 0.15s ease}
+.filter-chip:hover{border-color:var(--glass);background:var(--glass)}
+.filter-chip.active{border-color:var(--accent);color:var(--accent);background:linear-gradient(90deg, rgba(43,124,255,0.08), transparent);font-weight:600}
+
+/* Stacked badge grid for member detail view */
+.badge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:16px;margin-top:8px}
+.badge-grid .badge-card{width:100%;box-shadow:0 2px 8px var(--shadow)}
+
+/* Responsive adjustments for narrower screens */
 @media (max-width:1000px){
   .layout{flex-direction:column}
   .right-col{max-width:none}
@@ -54,6 +74,28 @@ button{background:var(--card);border:1px solid var(--glass);padding:8px 10px;bor
   .float-item{width:60px;height:60px;border-radius:50%}
   .selected-avatar{width:64px;height:64px}
   .badge-card{width:120px}
+  .badge-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px}
+}
+
+@media (max-width:600px){
+  body{padding:10px}
+  header{gap:8px;padding-bottom:8px}
+  .brand h1{font-size:18px}
+  .layout{gap:12px;margin-top:12px}
+  .panel{padding:12px}
+  .float-stage{min-height:260px;padding:6px}
+  .float-item{width:52px;height:52px}
+  .float-item .initial{font-size:16px}
+  .selected-avatar{width:56px;height:56px;font-size:24px}
+  .selected-name{font-size:16px}
+  .stats-grid{grid-template-columns:1fr}
+  .badge-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+  .badge-card{padding:10px;width:100%}
+  .badge-card img{width:72px;height:72px}
+  .badge-name{font-size:12px}
+  .badge-desc{font-size:11px}
+  .filter-chip{padding:4px 10px;font-size:12px}
+  .section-header h3{font-size:14px}
 }
 
 /* Ensure the float stage is visible and sized for layout (override accidental display:none) */
