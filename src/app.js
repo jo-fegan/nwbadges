@@ -6,8 +6,11 @@
 // - For direct browser reads, store the anon key in localStorage:
 //   localStorage.setItem('supabase_anon', 'sb_publishable_...');
 
+//const SUPABASE_URL = 'https://qnclxwwfapexijgpweja.supabase.co';
+//let SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon') || '';
+
 const SUPABASE_URL = 'https://qnclxwwfapexijgpweja.supabase.co';
-let SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon') || '';
+const SUPABASE_ANON_KEY = 'sb_publishable_OBMbI-juYTkkPcDS2RoKWg_jDPYLcWF';
 const BUCKET_NAME = 'badges';
 
 const TABLES = {
@@ -19,6 +22,7 @@ const TABLES = {
 
 const THEME_KEY = 'nwbadges_theme_v1';
 
+/*
 // Read anon key from localStorage at call time so REST requests always use the current value
 function fetchHeaders() {
   const key = localStorage.getItem('supabase_anon') || '';
@@ -28,7 +32,18 @@ function fetchHeaders() {
     h['Authorization'] = 'Bearer ' + key;
   }
   return h;
+}*/
+
+
+function fetchHeaders() {
+  const key = SUPABASE_ANON_KEY;
+  const h = { 'Accept': 'application/json' };
+  if (key) {
+    h['apikey'] = key;
+  }
+  return h;
 }
+
 
 async function fetchTable(table, params = '') {
   const url = `${SUPABASE_URL}/rest/v1/${table}${params}`;
