@@ -1,4 +1,4 @@
-// src/app.js - full replacement
+// src/app.js - full replacement v2
 // IMPORTANT:
 // - Set SUPABASE_URL to your project URL.
 // - Your bucket is public and named "badges", which matches the BUCKET_NAME below.
@@ -215,7 +215,7 @@ function renderAllBadges() {
       file: file,
       short: b.description || '',
       categories: b.categories || []
-    }, false, true, { showOnlyDescription: true });
+    }, false, true, { showOnlyDescription: true, fullColor: true });
     root.appendChild(card);
   });
 }
@@ -223,7 +223,7 @@ function renderAllBadges() {
 // Build badge card
 function buildBadgeCard(item, earned = false, eligible = true, opts = {}) {
   const card = document.createElement('div');
-  card.className = 'badge-card ' + (earned ? 'earned' : 'unearned');
+  card.className = 'badge-card ' + (earned ? 'earned' : (opts.fullColor ? 'fullcolor' : 'unearned'));
 
   if (item.file) {
     const img = document.createElement('img');
@@ -280,7 +280,8 @@ function populateBadgeDescription(item) {
 // ---------- Floating initials ----------
 function getFloatItemSize() {
   const w = window.innerWidth;
-  if (w < 420) return 52;
+  if (w < 420) return 44;
+  if (w < 720) return 52;
   if (w < 900) return 64;
   return 72;
 }
@@ -294,7 +295,7 @@ function renderFloatingMembers() {
 
   if (!MEMBERS || MEMBERS.length === 0) return;
 
-  const pad = 12;
+  const pad = 8;
   const itemW = getFloatItemSize();
   const area = stage.getBoundingClientRect();
   const width = Math.max(220, area.width - pad * 2);
@@ -305,7 +306,7 @@ function renderFloatingMembers() {
       const dx = it.left - x;
       const dy = it.top - y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < (itemW + 8)) return true;
+      if (dist < (itemW + 6)) return true;
     }
     return false;
   }
@@ -357,7 +358,7 @@ function startMovementLoop() {
     const stage = el('float-stage');
     if (!stage) return;
 
-    const pad = 12;
+    const pad = 8;
     const itemW = getFloatItemSize();
     const area = stage.getBoundingClientRect();
     const width = Math.max(220, area.width - pad * 2);
@@ -369,7 +370,7 @@ function startMovementLoop() {
       let ny = it.top;
 
       do {
-        const maxShift = 24;
+        const maxShift = 20;
         nx = Math.max(pad, Math.min(pad + width - itemW, it.left + (Math.random() * 2 - 1) * maxShift));
         ny = Math.max(pad, Math.min(pad + height - itemW, it.top + (Math.random() * 2 - 1) * maxShift));
         attempts++;
@@ -382,7 +383,7 @@ function startMovementLoop() {
           const dx = other.left - nx;
           const dy = other.top - ny;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < (itemW + 8)) { coll = true; break; }
+          if (dist < (itemW + 6)) { coll = true; break; }
         }
         if (!coll) break;
       } while (true);
@@ -409,7 +410,7 @@ function positionAllFloatElements(keepRelative = false) {
   const stage = el('float-stage');
   if (!stage) return;
 
-  const pad = 12;
+  const pad = 8;
   const itemW = getFloatItemSize();
   const width = Math.max(220, stage.clientWidth - pad * 2);
   const height = Math.max(220, stage.clientHeight - pad * 2);
@@ -491,8 +492,8 @@ function selectMember(member) {
     });
   }
 
-  const earnedRow = el('earned-row');
-  const availableRow = el('available-row');
+  const earnedRow = el('earned-section');
+  const availableRow = el('available-section');
   if (!earnedRow || !availableRow) return;
 
   earnedRow.innerHTML = '';
@@ -502,33 +503,43 @@ function selectMember(member) {
   (BADGES || []).forEach(b => (b.categories || []).forEach(c => allCategories.add(c)));
   const cats = Array.from(allCategories).filter(Boolean).sort();
 
-  const renderList = (items, row, mode) => {
+  const renderSection = (items, container, mode) => {
+    // Section header
+    const sectionHeader = document.createElement('div');
+    sectionHeader.className = 'section-header';
+    
+    const heading = document.createElement('h3');
+    heading.textContent = mode === 'earned' ? 'Earned' : 'Available';
+    sectionHeader.appendChild(heading);
+    
+    // Filter toolbar
     const filtersHolder = document.createElement('div');
-    filtersHolder.className = 'filters';
+    filtersHolder.className = 'filter-toolbar';
 
     const allBtn = document.createElement('button');
-    allBtn.className = 'filter-btn active';
+    allBtn.className = 'filter-chip active';
     allBtn.textContent = 'All';
     filtersHolder.appendChild(allBtn);
 
     cats.forEach(cat => {
       const btn = document.createElement('button');
-      btn.className = 'filter-btn';
+      btn.className = 'filter-chip';
       btn.textContent = cat;
       filtersHolder.appendChild(btn);
     });
 
-    row.appendChild(filtersHolder);
+    sectionHeader.appendChild(filtersHolder);
+    container.appendChild(sectionHeader);
 
+    // Badge grid container
     const list = document.createElement('div');
-    list.className = 'hrow';
-    list.style.flexWrap = 'wrap';
-    list.style.marginTop = '8px';
-    row.appendChild(list);
+    list.className = 'badge-grid';
+    list.dataset.mode = mode;
+    container.appendChild(list);
 
     const applyFilter = (sel) => {
-      filtersHolder.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.textContent === sel);
+      filtersHolder.querySelectorAll('.filter-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.textContent === sel);
       });
 
       list.innerHTML = '';
@@ -577,7 +588,7 @@ function selectMember(member) {
         if (mode === 'earned') {
           const comment = it.comment ? escapeHtml(it.comment) : '';
           const dateText = it.earned_at ? new Date(it.earned_at).toLocaleDateString() : '';
-          desc.innerHTML = `${comment} <div style="font-size:12px;color:var(--muted)">${dateText}</div>`;
+          desc.innerHTML = `${comment}<div class="earned-date">${dateText}</div>`;
         } else {
           desc.textContent = it.description || '';
         }
@@ -587,14 +598,14 @@ function selectMember(member) {
       });
     };
 
-    filtersHolder.querySelectorAll('.filter-btn').forEach(btn => {
+    filtersHolder.querySelectorAll('.filter-chip').forEach(btn => {
       btn.addEventListener('click', () => applyFilter(btn.textContent));
     });
 
     applyFilter('All');
   };
 
-  renderList(memberEarned, earnedRow, 'earned');
+  renderSection(memberEarned, earnedRow, 'earned');
 
   const earnedNames = new Set(memberEarned.map(e => e.name));
   const availableBadges = (BADGES || []).filter(b => !earnedNames.has(b.name)).map(b => ({
@@ -605,7 +616,7 @@ function selectMember(member) {
     categories: b.categories || []
   }));
 
-  renderList(availableBadges, availableRow, 'available');
+  renderSection(availableBadges, availableRow, 'available');
 
   populateBadgeDescription(null);
 }
