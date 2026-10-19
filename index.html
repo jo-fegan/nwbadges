@@ -22,7 +22,34 @@
   <main class="layout">
     <section class="left-col">
       <div id="selected-container" class="panel hide" aria-hidden="true">
-        ...
+        <div class="selected-area">
+          <div id="selected-avatar" class="selected-avatar" aria-hidden="false"></div>
+          <div style="flex:1">
+            <div id="selected-name" class="selected-name">Name</div>
+            <div id="selected-summary" class="muted" style="margin-top:6px">0 badges earned</div>
+          </div>
+          <button id="back-to-team" class="small-btn hide" aria-label="Back to team">Back</button>
+        </div>
+
+        <div class="hr" style="margin:12px 0"></div>
+
+        <div id="stats-grid" class="stats-grid" style="margin-bottom:12px"></div>
+
+        <div class="hr" style="margin:12px 0"></div>
+
+        <div style="margin-top:8px">
+          <strong>Earned</strong>
+          <div id="earned-row" class="hrow" style="margin-top:8px"></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <strong>Available</strong>
+          <div id="available-row" class="hrow" style="margin-top:8px"></div>
+        </div>
+
+        <div class="hr" style="margin:12px 0"></div>
+
+        <div id="badge-description" class="muted" style="margin-top:8px">Select a badge to view its description.</div>
       </div>
 
       <div id="float-stage" class="float-stage panel" aria-live="polite"></div>
