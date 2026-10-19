@@ -53,6 +53,11 @@
       </div>
 
       <div id="float-stage" class="float-stage panel" aria-live="polite"></div>
+
+      <div class="panel" style="margin-top:12px">
+        <strong>All badges</strong>
+        <div id="all-badges" class="hrow" style="padding-top:12px"></div>
+      </div>
     </section>
 
     <aside class="right-col">
@@ -69,17 +74,30 @@
           - Scroll through the All badges panel below to see the full list
         </div>
       </div>
-
-      <div class="panel" style="margin-top:12px">
-        <strong>All badges</strong>
-        <div id="all-badges" class="hrow" style="padding-top:12px"></div>
-      </div>
     </aside>
   </main>
 
   <!-- Suggest modal (stub) -->
-  <div id="suggest-modal" class="overlay hide">
-    ...
+  <div id="suggest-modal" class="overlay hide" role="dialog" aria-modal="true">
+    <div class="modal">
+      <h3>Suggest a badge</h3>
+      <div style="margin-top:8px">
+        <label for="s-name">Name</label><br>
+        <input id="s-name" type="text" style="width:100%;padding:8px;margin-top:6px"/>
+      </div>
+      <div style="margin-top:8px">
+        <label for="s-desc">Short description</label><br>
+        <textarea id="s-desc" style="width:100%;padding:8px;margin-top:6px" rows="3"></textarea>
+      </div>
+      <div style="margin-top:8px">
+        <label for="s-look">Badge appearance (describe or link)</label><br>
+        <input id="s-look" type="text" style="width:100%;padding:8px;margin-top:6px"/>
+      </div>
+      <div class="actions" style="margin-top:12px">
+        <button id="s-cancel" class="small-btn">Cancel</button>
+        <button id="s-submit" class="small-btn">Send</button>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="src/app.js"></script>
